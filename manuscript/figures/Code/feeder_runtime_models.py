@@ -111,9 +111,15 @@ class OpenDSSAdapter(BaseAdapter):
         self.master = Path(master).resolve()
         DSS.Text.Command = f"Compile [{self.master}]"
         DSS.Text.Command = "Set Maxiterations=50"
+        # First settle the canonical feeder with its autonomous regulator and
+        # capacitor controls enabled.  Candidate recovery checks then freeze
+        # this solved control state.  This prevents regulator hunting after
+        # large block shedding in the 8500-node benchmark and makes the
+        # authoritative check a deterministic fixed-control-state AC verifier.
         DSS.Text.Command = "Solve"
         if not bool(DSS.ActiveCircuit.Solution.Converged):
             raise RuntimeError(f"OpenDSS base case did not converge: {self.master}")
+        DSS.Text.Command = "Set ControlMode=Off"
         self.n_nodes = int(DSS.ActiveCircuit.NumBuses)
         loads = DSS.ActiveCircuit.Loads
         names, kws = [], []
@@ -138,9 +144,13 @@ class OpenDSSAdapter(BaseAdapter):
 
     def _solve(self) -> Tuple[bool, float]:
         t0 = time.perf_counter()
-        self.DSS.Text.Command = "Solve"
+        try:
+            self.DSS.Text.Command = "Solve"
+            converged = bool(self.DSS.ActiveCircuit.Solution.Converged)
+        except Exception:
+            converged = False
         elapsed = (time.perf_counter() - t0) * 1000.0
-        if not bool(self.DSS.ActiveCircuit.Solution.Converged):
+        if not converged:
             return False, elapsed
         # DSS-Python exposes per-unit bus magnitudes through AllBusVmagPu.
         # De-energized entries are filtered because partial restoration can
