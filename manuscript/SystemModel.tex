@@ -1,0 +1,177 @@
+\begin{table}[t]
+	\centering
+	\caption{Key notations}
+	\label{table-notations1}
+	\setlength{\tabcolsep}{1.2mm}{
+	\begin{tabular}{ll}
+		\toprule[1.5pt]
+		Notation & Definition \\
+		\midrule
+		$\mathcal{G}^{p}$ & Physical power network graph \\
+		$\mathcal{G}^{c}$ & Cyber communication and control graph \\
+		$\mathcal{K}_t$ & Dynamic power-CPS knowledge graph at time $t$ \\
+		$\mathcal{E},\mathcal{R},\mathcal{X}$ & Entity, relation, and attribute sets in $\mathcal{K}_t$ \\
+		$\mathcal{F}_t$ & Fault and attack evidence observed at time $t$ \\
+		$\mathcal{Z}_t$ & Aligned evidence-event set at time $t$ \\
+		$\mathcal{O}_t$ & Graph-operation set applied to $\mathcal{K}_t$ \\
+		$\mathcal{G}^{task}_t$ & Fault-affected task subgraph extracted from $\mathcal{K}_t$ \\
+		$s_t$ & Global semantic state vector encoded from $\mathcal{G}^{task}_t$ \\
+		$o_t^i$ & Local observation of restoration agent $i$ \\
+		$a_t^i$ & Local restoration action of agent $i$ \\
+		$\mathbf{a}_t$ & Joint restoration action \\
+		$\mathcal{A}^{safe}(s_t)$ & Rule- and physics-feasible joint action set \\
+		$\eta_t$ & Recovered load ratio after action execution \\
+		$N_{\rm viol}(t)$ & Number or severity of safety violations \\
+		$\psi,\theta_g,\nu_i,\phi$ & Shared encoder, role head, local adapter, and critic parameters \\
+		$\omega_i$ & Federated aggregation weight of client $i$ \\
+		\bottomrule[1.5pt]
+	\end{tabular}}
+\end{table}
+
+\section{SYSTEM MODEL}
+This section defines the cross-layer power-CPS model and the dynamic knowledge graph used by KG-FedMARL. Table~\ref{table-notations1} lists the main notation.
+
+\subsection{Cross-Layer Power-CPS Architecture}
+We model a power CPS as an interdependent system
+\begin{align}
+\label{eq-cross-layer-system}
+\mathcal{S}=\{\mathcal{G}^{p},\mathcal{G}^{c},\mathcal{D},\mathcal{U},\mathcal{C}\},
+\end{align}
+where $\mathcal{G}^{p}=(\mathcal{V}^{p},\mathcal{L}^{p})$ is the physical power network, $\mathcal{G}^{c}=(\mathcal{V}^{c},\mathcal{L}^{c})$ is the cyber communication and control network, $\mathcal{D}$ denotes distributed measurement and actuation devices, $\mathcal{U}$ denotes controllable restoration resources, and $\mathcal{C}$ denotes operational constraints.
+
+The physical node set $\mathcal{V}^{p}$ contains buses, feeders, transformers, generators, energy-storage units, loads, distributed generators, and microgrid interfaces. Physical lines $\mathcal{L}^{p}$ carry power flows and are constrained by radiality, voltage magnitude, current limits, switch states, protection coordination, and resource capacities. The cyber node set $\mathcal{V}^{c}$ contains control centers, substation controllers, intelligent electronic devices, communication relays, edge servers, and monitoring terminals. Cyber links $\mathcal{L}^{c}$ transmit measurements, commands, protection messages, model updates, and restoration coordination signals.
+
+Physical and cyber layers are coupled by typed dependencies. A cyber controller may supervise a physical breaker; a sensor may measure a bus voltage; a communication path may be required before a remote switch command can be executed; a power-line fault may also damage fiber links installed on the same corridor. We represent these dependencies as a cross-layer relation set
+\begin{align}
+\label{eq-coupling-relation}
+\mathcal{R}^{pc}=\{(u,r,v)\mid u\in\mathcal{V}^{p}\cup\mathcal{V}^{c}, v\in\mathcal{V}^{p}\cup\mathcal{V}^{c}\}.
+\end{align}
+This explicit relation set follows the cross-layer CPS design principle that resilience emerges from inter-layer coordination rather than isolated layer hardening \cite{zhu2020cross}.
+
+\subsection{Cross-Layer Dependency Classes}
+For restoration, not every dependency has the same decision meaning. We divide $\mathcal{R}^{pc}$ into four classes that are checked at different points in the KG-FedMARL loop.
+
+\emph{Observation dependencies} connect a physical quantity to the sensing, communication, and trust chain that makes it observable. A voltage value at bus $v$ is usable only if the associated sensor, communication route, timestamp, and trust attribute are acceptable. \emph{Actuation dependencies} connect an action to the cyber path, authorization rule, and device state required for execution. \emph{Constraint dependencies} connect actions and devices to radiality, voltage, thermal, protection, load-priority, and communication-availability constraints. \emph{Damage dependencies} represent co-location or causal relations through which a physical event can degrade cyber resources, or a cyber attack can corrupt physical-state estimation.
+
+This separation matters because the restoration controller should not treat all missing information as the same kind of uncertainty. A missing measurement affects state estimation; an unavailable command path affects action feasibility; an active protection rule affects admissibility; and a suspected data attack affects trust. KG-FedMARL keeps these distinctions in the KG relation vocabulary so that the policy input and the safety filter receive different evidence for different failure mechanisms.
+
+\subsection{Fault, Attack, and Restoration Process}
+At each decision time $t$, the system receives incomplete evidence $\mathcal{F}_t$ from protection devices, supervisory control and data acquisition logs, phasor measurements, alarms, and communication status. The evidence may include line trips, abnormal voltage, unavailable sensors, delayed commands, corrupted measurements, and suspected cyber attacks. The true system condition is partially observed because faults can disable the sensing and communication channels needed to diagnose them.
+
+Restoration actions include switch opening/closing, feeder reconfiguration, load transfer, distributed-generator dispatch, energy-storage support, microgrid islanding or reconnection, communication-path repair, relay/protection-rule adjustment, and temporary load shedding. Not every action is feasible in every state. An action must satisfy both physical constraints and cyber prerequisites. For example, closing a tie switch is invalid if it creates a loop in a radial feeder, overloads a line, violates a voltage bound, or relies on an unavailable control path.
+
+We describe the system transition as
+\begin{align}
+\label{eq-system-transition}
+x_{t+1}=f(x_t,\mathbf{a}_t,\xi_t),
+\end{align}
+where $x_t$ is the latent cross-layer state, $\mathbf{a}_t$ is the joint restoration action, and $\xi_t$ captures stochastic fault evolution, demand fluctuation, renewable output, cyber delay, and model uncertainty. The learning agents cannot observe $x_t$ directly; instead they use local observations and graph-derived semantic states.
+
+\subsection{Dynamic Power-CPS Knowledge Graph}
+The dynamic knowledge graph at time $t$ is
+\begin{align}
+\label{eq-kg}
+\mathcal{K}_t=(\mathcal{E}_t,\mathcal{R}_t,\mathcal{X}_t,\mathcal{T}_t),
+\end{align}
+where $\mathcal{E}_t$ is the entity set, $\mathcal{R}_t$ is the relation set, $\mathcal{X}_t$ stores attributes, and $\mathcal{T}_t$ stores temporal validity and provenance. The graph follows the general KG view of typed entities, relations, ontologies, rules, reasoning, and embeddings \cite{hogan2021knowledgegraphs,reinanda2020knowledge}. In KG-FedMARL, the entity set includes four restoration-oriented classes:
+\begin{itemize}
+	\item \emph{Device entities}: buses, lines, breakers, transformers, sensors, relays, controllers, communication nodes, generators, loads, storage units, and microgrids.
+	\item \emph{State entities}: energized/de-energized state, load level, voltage, frequency, communication availability, fault probability, device health, and cyber trust.
+	\item \emph{Action entities}: switching, load transfer, generator dispatch, storage charging/discharging, microgrid islanding, communication rerouting, and emergency shedding.
+	\item \emph{Rule entities}: protection settings, radiality rules, voltage/current limits, control authorization, operation manuals, safety constraints, and restoration priorities.
+\end{itemize}
+
+The relation vocabulary is designed for restoration rather than generic asset management. It includes \emph{topologically-connected}, \emph{communicates-with}, \emph{measures}, \emph{controls}, \emph{depends-on}, \emph{causes}, \emph{relieves}, \emph{violates}, \emph{satisfies}, \emph{precedes}, and \emph{similar-to}. A typed triple $(e_h,r,e_t)$ can therefore state that a relay controls a breaker, a breaker connects two buses, a communication route is needed by a switch action, or a previous load-transfer action relieved a similar fault.
+
+The graph is updated online rather than rebuilt from scratch. Raw evidence $\mathcal{F}_t$ is first aligned to an evidence-event set
+\begin{align}
+\label{eq-evidence-event}
+\mathcal{Z}_t=\{z=(e_s,\kappa,e_o,v_z,t,c_z,p_z)\},
+\end{align}
+where $e_s$ is the source entity, $\kappa$ is the evidence type, $e_o$ is the affected entity or relation, $v_z$ is the reported value, $c_z\in[0,1]$ is evidence confidence, and $p_z$ stores provenance. Each event is converted by a rule-and-scoring mapper $\mathcal{M}_{\psi}$ into graph operations
+\begin{align}
+\label{eq-graph-ops}
+\mathcal{O}_t&=\mathcal{M}_{\psi}(\mathcal{Z}_t,\mathcal{K}_t) \nonumber\\
+&=\{\textsc{AddE},\textsc{AddR},\textsc{UpdateX},\textsc{DeactivateR}\}.
+\end{align}
+The resulting graph update is
+\begin{align}
+\label{eq-kg-update}
+\mathcal{K}_{t+1}=\textsc{Apply}\left(\mathcal{K}_t,\mathcal{O}_t,\mathbf{p}_t\right),
+\end{align}
+where every changed fact receives a timestamp, validity interval, source tag, and confidence. Uncertain cyber or measurement evidence does not physically remove a relation. It adds a state entity and reduces a confidence or trust attribute. A relation is deactivated only when the evidence is confirmed, and even then the old relation is retained with an expired validity interval for audit and replay.
+
+\begin{table*}[t]
+	\centering
+	\caption{Evidence-to-knowledge-graph update rules used by KG-FedMARL}
+	\label{table-evidence-update}
+	\setlength{\tabcolsep}{2.0mm}{
+	\resizebox{\textwidth}{!}{
+	\begin{tabular}{llll}
+		\toprule[1.5pt]
+		Evidence event & Entity operation & Relation operation & Attribute operation \\
+		\midrule
+		Line trip or breaker alarm & Add \texttt{FaultState} for the line, breaker, or feeder & Add \texttt{affects} links to buses, loads, sensors, and candidate actions & Set line status, fault probability, isolation time, and evidence confidence \\
+		Measurement anomaly & Add \texttt{MeasurementAnomaly} or \texttt{SuspectedAttackState} with timestamp & Add \texttt{suspected-corrupts}; keep \texttt{measures} but lower its confidence & Decrease measurement-path trust and increase observation uncertainty \\
+		Controller unavailable or delayed command & Add \texttt{UnavailableControllerState} or \texttt{DelayState} & Temporarily deactivate \texttt{can-execute} or \texttt{requires-route} if confirmed & Update reachability, latency, authorization, and command-success probability \\
+		Communication reroute or repair & Add \texttt{RepairState} for the affected route & Add or reactivate \texttt{communicates-with} and \texttt{supports-command} & Update bandwidth, latency, route reliability, and repair time \\
+		Executed restoration action & Add \texttt{RestorationOutcome} linked to the action and context & Add \texttt{relieves}, \texttt{violates}, or \texttt{similar-to} explanation paths & Update load recovery, violation count, cyber cost, and action success memory \\
+		\bottomrule[1.5pt]
+	\end{tabular}}}
+\end{table*}
+
+For soft evidence, confidence is updated by a bounded exponential rule
+\begin{align}
+\label{eq-confidence-update}
+c_{q,t+1}=(1-\alpha)c_{q,t}+\alpha\,\varsigma(z,q),
+\end{align}
+where $c_{q,t}$ is the confidence of a fact, relation, or attribute $q$ and $\varsigma(z,q)$ is the evidence-specific support score returned by $\mathcal{M}_{\psi}$. For action entities, the graph maintains a reliability attribute
+\begin{align}
+\label{eq-action-reliability}
+\begin{split}
+p_{succ}(a,r_c)\leftarrow &(1-\beta)p_{succ}(a,r_c)\\
+&+\beta\mathbb{I}\{\mathbf{y}_t\ \text{passes acceptance tests}\},
+\end{split}
+\end{align}
+where $r_c$ denotes the relevant restoration context, such as a fault type, measurement-trust pattern, controller availability state, and cyber-route condition. This update turns the KG into an experience memory: a future task subgraph can retrieve which action paths previously restored load without violating constraints under a similar context.
+
+\subsection{Task Subgraph and Semantic State}
+Given current evidence $\mathcal{F}_t$, KG-FedMARL extracts a $k$-hop task subgraph
+\begin{align}
+\label{eq-task-subgraph}
+\mathcal{G}^{task}_t=(\mathcal{V}^{task}_t,\mathcal{E}^{task}_t)
+\end{align}
+around the affected devices, unavailable cyber nodes, candidate restoration actions, and active constraints. Each node $v\in\mathcal{V}^{task}_t$ has a feature vector
+\begin{align}
+\label{eq-node-feature}
+\mathbf{x}_v=[\mathbf{e}^{type}_v,\mathbf{z}^{op}_v,p^{fault}_v,p^{succ}_v,\mathbf{z}^{time}_v],
+\end{align}
+where $\mathbf{e}^{type}_v$ encodes entity type, $\mathbf{z}^{op}_v$ stores normalized operating attributes, $p^{fault}_v$ is fault probability, $p^{succ}_v$ is historical action success rate when applicable, and $\mathbf{z}^{time}_v$ encodes temporal recency and duration.
+
+A relation-aware graph-attention encoder maps the task subgraph into a global semantic vector. For relation $r_{uv}$ between nodes $u$ and $v$, the attention logit is
+\begin{align}
+\label{eq-rel-attention}
+e_{uv}^{\ell}=\text{LeakyReLU}\left(\mathbf{q}^{\ell\top}
+\left[\mathbf{W}^{\ell}\mathbf{h}_{u}^{\ell};\mathbf{W}^{\ell}\mathbf{h}_{v}^{\ell};\mathbf{W}_{r}^{\ell}\mathbf{r}_{uv}\right]\right),
+\end{align}
+and
+\begin{align}
+\label{eq-attention-normalize}
+\alpha_{uv}^{\ell}=\frac{\exp(e_{uv}^{\ell})}{\sum_{w\in\mathcal{N}(v)}\exp(e_{wv}^{\ell})}.
+\end{align}
+The node update is
+\begin{align}
+\label{eq-gat}
+\mathbf{h}_{v}^{\ell+1}=\sigma\left(\sum_{u\in\mathcal{N}(v)}\alpha_{uv}^{\ell}\mathbf{W}^{\ell}\mathbf{h}_{u}^{\ell}\right),
+\end{align}
+where $\mathbf{r}_{uv}$ encodes the relation type and confidence. A pooling operator then produces
+\begin{align}
+\label{eq-semantic-state}
+s_t=\text{POOL}\left(\{\mathbf{h}_{v}^{L}:v\in\mathcal{V}^{task}_t\}\right).
+\end{align}
+Each agent $i$ receives the augmented observation
+\begin{align}
+\label{eq-agent-state}
+\tilde{s}_t^i=[o_t^i;s_t],
+\end{align}
+which combines local device or feeder information with global cross-layer semantics.
