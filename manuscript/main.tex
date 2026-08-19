@@ -97,7 +97,8 @@
 \input{Experimental-RPDRQL.tex}
 \FloatBarrier
 \input{Conclution.tex}
-\input{Acknowledgments.tex}
+% Acknowledgments are optional in the working repository and are included only when provided.
+\IfFileExists{Acknowledgments.tex}{\input{Acknowledgments.tex}}{}
 
 \bibliography{ref}{}
 \bibliographystyle{unsrt}
