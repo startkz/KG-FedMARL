@@ -1,20 +1,10 @@
 name: Compile branch smoke
 on:
-  push:
-    branches: [ compile-fast-20260819 ]
+  workflow_dispatch:
 permissions:
-  contents: write
+  contents: read
 jobs:
   smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - run: |
-          echo "run_id=$GITHUB_RUN_ID" > manuscript/smoke_compile_branch.txt
-          echo "sha=$GITHUB_SHA" >> manuscript/smoke_compile_branch.txt
-      - run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -f manuscript/smoke_compile_branch.txt
-          git commit -m 'debug: capture compile branch smoke run'
-          git push origin HEAD:compile-fast-20260819
+      - run: echo smoke-disabled-after-trigger-check
