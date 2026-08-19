@@ -1,107 +1,200 @@
 \section{PROBLEM FORMULATION}
-This section formulates resilient restoration as a knowledge-conditioned constrained Markov game.
+\label{sec-problem-formulation}
+This section formalizes resilient restoration under adversarial recovery knowledge. The formulation separates four issues that were conflated in the original manuscript: partial observability, evidence-dependent action admissibility, worst-case recovery performance, and the security objective of bounding the propagation of erroneous knowledge. The attacker is modeled through the observation and evidence processes defined in Section~\ref{sec-system-model}, rather than as a cooperative decision agent.
 
-\subsection{Constrained Markov Game}
-Let $\mathcal{I}=\{1,\ldots,N\}$ denote restoration agents, such as substation controllers, feeder agents, microgrid controllers, distributed-generator agents, and communication-repair agents. The restoration process is modeled as
+\subsection{Constrained Dec-POMDP under Adversarial Knowledge}
+\label{subsec-decpomdp}
+Let $\mathcal{I}=\{1,\ldots,N\}$ denote the set of restoration agents. Because each agent observes only a local part of the PCPS and the recovery knowledge state summarizes time-dependent evidence history, we model restoration as a constrained decentralized partially observable Markov decision process (C-Dec-POMDP)
 \begin{align}
-\label{eq-game}
-\mathcal{M}=\langle \mathcal{S},\{\mathcal{A}_i\}_{i=1}^{N},P,R,\gamma,\mathcal{K}\rangle,
+\label{eq-cdecpomdp}
+\mathcal{M}_{\rm rec}=\left\langle
+\mathcal{I},\mathcal{X},\{\mathbb{U}_i\}_{i\in\mathcal{I}},
+P,\{\mathcal{O}_i\}_{i\in\mathcal{I}},O,R,\mathcal{C},\gamma
+\right\rangle,
 \end{align}
-where $\mathcal{S}$ is the latent cross-layer state space, $\mathcal{A}_i$ is the local action set of agent $i$, $P$ is the state transition kernel, $R$ is the global restoration reward, $\gamma\in(0,1)$ is the discount factor, and $\mathcal{K}$ denotes the dynamic KG that supplies observations, constraints, and historical evidence.
+where $\mathcal{X}$ is the latent cross-layer state space, $\mathbb{U}_i$ is the action space of agent $i$, $P(x_{t+1}\mid x_t,\mathbf{a}_t)$ is the state-transition kernel, $\mathcal{O}_i$ is the local observation space, $O$ is the observation model, $R$ is the cooperative restoration reward, $\mathcal{C}$ is the constraint set, and $\gamma\in(0,1)$ is the discount factor. We use $\mathbb{U}_i$ for action spaces to avoid overloading $\mathcal{A}_t$, which denotes dynamic KG assertions in Section~\ref{subsec-recovery-knowledge-plane}.
 
-At time $t$, agent $i$ observes $\tilde{s}_t^i=[o_t^i;s_t]$ and samples an action from its actor. Let $g(i)$ denote the action role of agent $i$:
+At time $t$, agent $i$ receives a local observation $o_{i,t}$ and has access to the task-relevant portion of the recovery belief state $\mathcal{B}_t$. Its decision information is written abstractly as
 \begin{align}
-\label{eq-actor}
-a_t^i\sim \pi_{\theta_{g(i)},\nu_i}(a^i|\tilde{s}_t^i).
+\label{eq-information-state}
+\iota_{i,t}=\big(\tau_{i,t},\mathcal{B}^{i}_t\big),
 \end{align}
-The joint candidate action is $\mathbf{a}_t=(a_t^1,\ldots,a_t^N)$. Before execution, the candidate is projected onto the feasible set
+where $\tau_{i,t}=(o_{i,0},a_{i,0},\ldots,o_{i,t})$ is the local action--observation history and $\mathcal{B}^{i}_t\subseteq\mathcal{B}_t$ contains the recovery beliefs relevant to the agent's current task. The concrete extraction and encoding of $\mathcal{B}^{i}_t$ are implementation choices deferred to Section~V. A decentralized policy selects
 \begin{align}
-\label{eq-safe-set}
-\mathcal{A}^{safe}(s_t)=
-\{\mathbf{a}\mid g_m(s_t,\mathbf{a})\le 0,\ h_n(s_t,\mathbf{a})=0\},
+\label{eq-decentralized-policy}
+a_{i,t}\sim\pi_i(\cdot\mid\iota_{i,t}),
 \end{align}
-where $m=1,\ldots,M$, $n=1,\ldots,H$. The function $g_m$ represents inequality constraints such as voltage, current, capacity, authorization, communication availability, and switching limits, while $h_n$ represents equality or structural constraints such as radiality and power balance. The executed action is
-\begin{align}
-\label{eq-projection}
-\mathbf{a}^{exec}_t=\Pi_{\mathcal{A}^{safe}(s_t)}(\mathbf{a}_t).
-\end{align}
-If no feasible nontrivial action exists, the filter returns a safe fallback such as maintaining isolation, local control, or limited load shedding.
+and the joint candidate action is $\mathbf{a}_t=(a_{1,t},\ldots,a_{N,t})$.
 
-\subsection{Three-Level Feasibility Structure}
-The feasible set in Eq.~\ref{eq-safe-set} is computed as a three-level candidate reduction rather than by running an exact solver on every joint action. The first level is semantic admissibility:
-\begin{align}
-\label{eq-semantic-admissible}
-\mathcal{A}^{kg}(s_t)=\{\mathbf{a}\mid \textsc{KGOK}(\mathcal{K}_t,\mathbf{a})=1\}.
-\end{align}
-This stage checks whether the command path exists, whether the device is controllable, whether the protection rule allows the operation, whether the measurement chain is trustworthy enough for the action, and whether similar historical outcomes raise a warning. It removes actions that are symbolically impossible or operationally forbidden.
+The adversary affects decision making indirectly by manipulating admissible evidence streams within the budget $\mathcal{B}_{A}$ in Eq.~\ref{eq-attack-budget}. Thus the observation and knowledge processes are attack dependent, whereas the physical transition kernel remains governed by the PCPS dynamics in Eq.~\ref{eq-system-transition}. This distinction is important: the security problem is not merely to tolerate exogenous state disturbances, but to prevent corrupted observations from becoming trusted recovery knowledge and then executable control authority.
 
-The second level is a fast surrogate feasibility screen:
+\subsection{Risk-Aware Action Admissibility}
+\label{subsec-risk-admissibility}
+We partition the restoration constraints into invariant engineering constraints and evidence-dependent prerequisites,
 \begin{align}
-\label{eq-surrogate-screen}
-\mathcal{A}^{sur}(s_t)=
-\{\mathbf{a}\mid \widehat{v}_{\chi}(s_t,\mathbf{a})\le \epsilon_{\rm sur}\},
+\label{eq-constraint-partition}
+\mathcal{C}=\mathcal{C}^{\rm inv}\cup\mathcal{C}^{\rm evid}_t.
 \end{align}
-where $\widehat{v}_{\chi}$ estimates voltage, current, radiality, load-shedding, and communication-risk violations from historical simulations or online rollouts. This model is not trusted as a final safety proof. It is used to rank and shrink the candidate set before an expensive physical check.
+The set $\mathcal{C}^{\rm inv}$ contains requirements whose validity does not depend on online attack diagnosis, such as voltage and thermal limits, device ratings, power-balance relations, protection interlocks, and radiality. By contrast, $\mathcal{C}^{\rm evid}_t$ contains runtime conditions inferred from evidence, such as whether a controller is available, whether a command route is reachable, or whether a measurement chain is sufficiently trustworthy for a specific operation.
 
-The third level is exact physical feasibility on the remaining candidates:
+For a candidate joint action $\mathbf{a}$, let
 \begin{align}
-\label{eq-physical-feasible}
-\mathcal{A}^{phy}(s_t)=\{\mathbf{a}\mid \textsc{PhyOK}(s_t,\mathbf{a})=1\}.
+\mathcal{Q}(\mathbf{a})=\{q_1,\ldots,q_m\}
 \end{align}
-Here $\textsc{PhyOK}$ may call an AC power-flow solver, a conservative linearized check, or a mixed-integer restoration model depending on the action type and time budget. The safe set is
+be the dynamic assertions that must hold for its cyber-physical execution. Instead of converting each KG assertion into a binary rule, we assign a risk budget $\delta_q\in(0,1)$ and require
 \begin{align}
-\label{eq-safe-intersection}
-\mathcal{A}^{safe}(s_t)=\mathcal{A}^{kg}(s_t)\cap\mathcal{A}^{sur}(s_t)\cap\mathcal{A}^{phy}(s_t).
+\label{eq-belief-prerequisite}
+b_t(q)\ge 1-\delta_q,
+\qquad \forall q\in\mathcal{Q}(\mathbf{a}).
 \end{align}
-This decomposition makes action rejection interpretable: a candidate may fail because of a missing cyber prerequisite, a rule conflict, a low-trust observation path, or a physical operating violation.
+The corresponding belief-admissible set is
+\begin{align}
+\label{eq-belief-admissible-set}
+\mathbb{U}^{B}_t=
+\left\{\mathbf{a}\ \middle|\
+ b_t(q)\ge1-\delta_q,
+\ \forall q\in\mathcal{Q}(\mathbf{a})
+\right\}.
+\end{align}
+Equation~\ref{eq-belief-admissible-set} makes uncertainty explicit: insufficient evidence cannot be interpreted as permission. The aggregate semantic risk budget for action $\mathbf{a}$ is constrained by
+\begin{align}
+\label{eq-semantic-risk-budget}
+\sum_{q\in\mathcal{Q}(\mathbf{a})}\delta_q\le\bar{\delta}_{B},
+\end{align}
+where $\bar{\delta}_{B}$ is selected according to the criticality of the restoration operation.
 
-\subsection{Restoration Objective}
-The reward should reflect the operational meaning of resilience: recover critical service quickly while avoiding unsafe actions. We define
+Invariant safety is checked independently of the belief gate. Let $\widehat{\mathcal{X}}_t$ be a conservative set of physical states consistent with the currently trusted measurements and uncertainty bounds. We define
 \begin{align}
-\label{eq-reward}
-R_t=w_1\eta_t-w_2\Delta T_t-w_3N_{\rm viol}(t)-w_4C_{\rm cyber}(t)-w_5C_{\rm shed}(t),
+\label{eq-invariant-admissible-set}
+\mathbb{U}^{\rm inv}_t=
+\Big\{\mathbf{a}\ \Big|\
+&g_k(x,\mathbf{a})\le0,\ \forall k,\\
+&h_l(x,\mathbf{a})=0,\ \forall l,
+\ \forall x\in\widehat{\mathcal{X}}_t
+\Big\},\nonumber
 \end{align}
-where $\eta_t$ is the recovered load ratio, $\Delta T_t$ is the restoration time or step penalty, $N_{\rm viol}(t)$ is the number or severity of safety violations after filtering and execution, $C_{\rm cyber}(t)$ is the cost of unavailable or rerouted cyber resources, and $C_{\rm shed}(t)$ penalizes curtailed critical load. The goal is
+where $g_k$ and $h_l$ represent inequality and equality/structural constraints, respectively. The final admissible action set is
 \begin{align}
-\label{eq-objective}
-\max_{\{\pi_{\theta_g,\nu_i}\}}\ \mathbb{E}\left[\sum_{t=0}^{T}\gamma^t R_t\right],
+\label{eq-final-admissible-set}
+\mathbb{U}^{\rm adm}_t
+=\mathbb{U}^{B}_t\cap\mathbb{U}^{\rm inv}_t.
 \end{align}
-subject to the rule, physics, communication, and operational constraints in Eq.~\ref{eq-safe-set}.
+A learned surrogate may later reduce the number of candidates sent to exact verification, but it cannot enlarge $\mathbb{U}^{\rm inv}_t$ and therefore has no independent authorization authority. If no nontrivial action is admissible, the controller executes a certified fallback action $\mathbf{a}^{\rm fb}_t\in\mathbb{U}^{\rm inv}_t$, such as maintaining isolation, retaining local control, or shedding a bounded amount of load.
 
-\subsection{Knowledge-Conditioned Feasibility}
-The feasible action set is computed from both explicit physical models and KG reasoning. Let $\mathcal{Q}(\mathcal{K}_t,\mathbf{a})$ be a semantic query that retrieves the devices, cyber paths, protection rules, and historical warnings related to a candidate action. The candidate is accepted only if
+\subsection{Robust Recovery Objective}
+\label{subsec-robust-objective}
+Let $\mathcal{L}$ be the set of loads, $P_l$ the nominal demand of load $l$, $w_l>0$ its service priority, and $y_{l,t}\in[0,1]$ its restored fraction at time $t$. The weighted restored-service ratio is
 \begin{align}
-\label{eq-kg-feasible}
-\text{Valid}(\mathbf{a},\mathcal{K}_t)=\text{true}
+\label{eq-weighted-recovery-ratio}
+\eta_t=
+\frac{\sum_{l\in\mathcal{L}}w_lP_l y_{l,t}}
+{\sum_{l\in\mathcal{L}}w_lP_l}.
 \end{align}
-and the physics check passes. For example, a switch-close action must have an available command path, proper authorization, no protection-rule conflict, preserved radiality, acceptable voltage, and no overloaded branch. This design turns KG reasoning into a formal part of the control pipeline, rather than a post-hoc explanation module.
+We use safety as a hard constraint rather than allowing a large restoration reward to compensate for an unsafe operation. The stage reward therefore captures service recovery and operational costs,
+\begin{align}
+\label{eq-robust-reward}
+R_t=
+\lambda_{\eta}\eta_t
+-\lambda_{s}C^{\rm shed}_t
+-\lambda_{o}C^{\rm op}_t
+-\lambda_{c}C^{\rm cyber}_t
+-\lambda_{f}C^{\rm fb}_t,
+\end{align}
+where $C^{\rm shed}_t$, $C^{\rm op}_t$, $C^{\rm cyber}_t$, and $C^{\rm fb}_t$ denote critical-load curtailment, switching/dispatch cost, cyber-resource recovery cost, and fallback-service loss, respectively.
 
-The query result also defines an explanation path for each accepted action. For action $a$, KG-FedMARL stores the path set
+Let $\mathfrak{A}(\mathcal{B}_{A})$ denote the set of adversaries satisfying the capability and budget assumptions in Section~\ref{subsec-threat-model}. We seek a recovery policy and online belief-update rule that maximize worst-case expected recovery performance,
 \begin{align}
-\label{eq-explanation-path}
-\mathcal{P}_a=\{e_0 \xrightarrow{r_1} e_1 \xrightarrow{r_2}\cdots \xrightarrow{r_L} e_L\},
+\label{eq-minimax-objective}
+\max_{\Pi,F_B}\ \inf_{\mathscr{A}\in\mathfrak{A}(\mathcal{B}_{A})}
+\mathbb{E}_{\mathscr{A}}
+\left[\sum_{t=0}^{T}\gamma^t R_t\right],
 \end{align}
-where the endpoints include the action entity, affected devices, required cyber resources, active constraints, and historical outcome entities. The path set is not only a narrative object. It is the evidence used by the safety filter and later written back with the execution outcome, so that the decision can be audited at the same granularity at which it was made.
+where $\Pi=\{\pi_i\}_{i\in\mathcal{I}}$ and
+$F_B$ denotes the online update mapping that produces $\mathcal{B}_{t+1}$ from the previous belief state and newly received evidence. The optimization in Eq.~\ref{eq-minimax-objective} is subject to
+\begin{align}
+\label{eq-execution-constraint}
+\mathbf{a}^{\rm exec}_t\in\mathbb{U}^{\rm adm}_t,
+\end{align}
+and to the physical safety and recovery requirements
+\begin{align}
+\label{eq-safety-probability}
+\Pr\left(x_t\in\mathcal{X}_{\rm unsafe}\right)&\le\delta_x,
+\qquad 0\le t\le T,\\
+\label{eq-recovery-liveness}
+\Pr\left(\exists t\le T_{\max}:x_t\in\mathcal{X}_{\rm tar}\right)&\ge1-\delta_r.
+\end{align}
+Here $\mathcal{X}_{\rm unsafe}$ and $\mathcal{X}_{\rm tar}$ denote the unsafe and target recovery sets, respectively. Equation~\ref{eq-recovery-liveness} prevents an overly conservative knowledge gate from achieving safety simply by refusing all useful restoration actions.
 
-\subsection{Federated Learning Constraint}
-Operational traces in different substations or edge controllers may be sensitive and bandwidth-constrained. KG-FedMARL therefore trains federatively, but the federated client and the restoration agent are different objects. A client is a data-owning cyber-physical site, such as a substation, feeder edge server, microgrid controller, or communication-repair center. A client may host one restoration agent or several role-specific agents. An agent is a decision role with its own observation and action space, such as switching, load transfer, microgrid support, or communication repair.
+\subsection{Security Objectives: Bounding Knowledge Propagation}
+\label{subsec-security-objectives}
+The distinguishing security objective of this work is to bound how far adversarial evidence can propagate through the recovery loop. We formalize this requirement at the knowledge, action, correction, and policy levels. These properties are design targets in this section; Section~V provides the mechanisms and the later theoretical analysis establishes sufficient conditions for them.
 
-Because these roles are heterogeneous, KG-FedMARL does not average all actor parameters directly. Client $i$ holds
+\emph{1) Bounded belief distortion.}
+Let $\mathcal{B}^{0}_t$ denote the counterfactual recovery belief state generated from uncompromised evidence under the same physical trajectory, and let $\mathcal{B}^{A}_t$ denote the belief state under an admissible attack. For the task-relevant assertion set $\mathcal{Q}_t$, define
 \begin{align}
-\label{eq-client-params}
-\Theta_i=\{\psi_i,\phi_i,\{\theta_{i,g}\}_{g\in\mathcal{G}_i},\nu_i\},
+\label{eq-belief-distance}
+D_B(\mathcal{B}^{A}_t,\mathcal{B}^{0}_t)
+=\sum_{q\in\mathcal{Q}_t}\omega_q
+\left|b^{A}_t(q)-b^{0}_t(q)\right|,
+\qquad \sum_q\omega_q=1.
 \end{align}
-where $\psi_i$ is the shared graph encoder, $\phi_i$ is the training-time critic or critic representation, $\theta_{i,g}$ is a role-specific action head for role $g$, and $\nu_i$ is a local personalized adapter. The server or coordinating edge node aggregates only compatible blocks:
+The first objective is the existence of a finite attack-budget-dependent bound
 \begin{align}
-\label{eq-fedavg}
-\psi^{(r+1)}
-&=\sum_{i\in\mathcal{P}_r}\omega_i^{enc,(r)}\psi_i^{(r)}, \nonumber\\
-\phi^{(r+1)}
-&=\sum_{i\in\mathcal{P}_r}\omega_i^{crit,(r)}\phi_i^{(r)},
+\label{eq-bounded-belief-distortion}
+\sup_{t\le T}
+D_B(\mathcal{B}^{A}_t,\mathcal{B}^{0}_t)
+\le \varepsilon_B(\mathcal{B}_{A}).
 \end{align}
-and, for each compatible role group $g$,
+This rules out unbounded accumulation of influence from a bounded number of compromised provenance groups.
+
+\emph{2) Bounded false authorization.}
+Let $\mathbb{U}^{\star}_t$ denote the action set that would be semantically admissible if the ground-truth values $q_t^{\star}$ of all prerequisites were known. A false authorization occurs when an action is admitted by the online belief state but is not contained in $\mathbb{U}^{\star}_t$. We require
 \begin{align}
-\label{eq-role-aggregation}
-\theta_g^{(r+1)}=\sum_{i\in\mathcal{P}_{r,g}}\omega_{i,g}^{(r)}\theta_{i,g}^{(r)}.
+\label{eq-false-authorization-bound}
+\Pr\left(
+\mathbf{a}^{\rm exec}_t\in
+\mathbb{U}^{\rm adm}_t\setminus\mathbb{U}^{\star}_t
+\right)
+\le \delta_{\rm auth}.
 \end{align}
-The local adapter $\nu_i$ is not aggregated. If two clients implement the same role with incompatible action heads, their knowledge is transferred by distillation on public or synthetic task subgraphs rather than by parameter averaging. Thus the formulation reduces centralized raw-data transfer risk while avoiding an invalid FedAvg assumption over heterogeneous action spaces.
+This objective formalizes the desired barrier between erroneous knowledge and field control authority.
+
+\emph{3) Finite correction after poisoning.}
+Suppose an attack affecting assertion $q$ ceases at time $t_a$ and sufficient uncompromised evidence resumes. For tolerance $\epsilon_{\rm corr}>0$, define the correction time
+\begin{align}
+\label{eq-correction-time}
+T_{\rm corr}(q)=
+\inf\left\{k\ge0:\left|b^{A}_{t_a+k}(q)-b^{0}_{t_a+k}(q)\right|\le\epsilon_{\rm corr}\right\}.
+\end{align}
+We seek conditions under which
+\begin{align}
+\label{eq-finite-correction}
+T_{\rm corr}(q)\le\overline{T}_{\rm corr}
+\end{align}
+for all task-critical assertions whose honest evidence becomes observable again. This prevents stale or poisoned recovery facts from persisting indefinitely after the attack ends.
+
+\emph{4) Bounded knowledge-to-policy propagation.}
+Let $\Pi^{A}_t$ and $\Pi^{0}_t$ denote online policies adapted from attacked and uncompromised recovery knowledge, respectively. We measure adversarially induced policy deviation by
+\begin{align}
+\label{eq-policy-distance}
+D_{\pi}(\Pi^{A}_t,\Pi^{0}_t)
+=\frac{1}{N}\sum_{i=1}^{N}
+\mathbb{E}_{\iota\sim\mu_t}
+\left[
+D_{\rm KL}
+\left(
+\pi^{A}_i(\cdot\mid\iota)
+\,\|\,
+\pi^{0}_i(\cdot\mid\iota)
+\right)
+\right],
+\end{align}
+where $\mu_t$ is the task-relevant information-state distribution. The required propagation bound is
+\begin{align}
+\label{eq-policy-propagation-bound}
+D_{\pi}(\Pi^{A}_t,\Pi^{0}_t)
+\le\varepsilon_{\pi}(\mathcal{B}_{A}).
+\end{align}
+The mechanism in Section~V enforces this objective by separating fast knowledge updates from slower trust-gated policy adaptation, so that a newly inserted or uncertain KG assertion cannot immediately alter the deployed recovery policy.
+
+Together, Eqs.~\ref{eq-bounded-belief-distortion}--\ref{eq-policy-propagation-bound} define the core security problem addressed by this paper: under incomplete, stale, conflicting, and partially adversarial recovery evidence, maintain an online knowledge state whose error remains bounded, prevent that error from directly authorizing unsafe recovery actions, correct poisoned knowledge within finite time once trustworthy evidence returns, and limit the resulting deviation of online recovery policies.
