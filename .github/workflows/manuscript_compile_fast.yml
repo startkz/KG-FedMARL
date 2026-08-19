@@ -1,0 +1,127 @@
+name: Fast manuscript compile audit
+
+on:
+  push:
+    branches: [ compile-fast-20260819 ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install compact TeX stack
+        continue-on-error: true
+        id: install
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            latexmk texlive-latex-base texlive-latex-recommended texlive-latex-extra \
+            texlive-fonts-recommended texlive-font-utils texlive-science texlive-publishers \
+            ghostscript poppler-utils imagemagick
+
+      - name: Compile current manuscript
+        id: compile
+        continue-on-error: true
+        if: steps.install.outcome == 'success'
+        working-directory: manuscript
+        run: |
+          # CJK and svg packages are not used by the current manuscript body;
+          # omit them in this diagnostic build to avoid unrelated CI dependencies.
+          sed -i '/\\usepackage{CJK}/d' main.tex
+          sed -i '/\\usepackage{svg}/d' main.tex
+          latexmk -pdf -shell-escape -interaction=nonstopmode -halt-on-error -file-line-error main.tex
+
+      - name: Audit PDF or failure
+        if: always()
+        working-directory: manuscript
+        env:
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          COMPILE_OUTCOME: ${{ steps.compile.outcome }}
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import os,re,subprocess
+          lines=[f'run_id={os.environ.get("GITHUB_RUN_ID","")}',
+                 f'source_commit={os.environ.get("GITHUB_SHA","")}',
+                 f'install_outcome={os.environ.get("INSTALL_OUTCOME","")}',
+                 f'compile_outcome={os.environ.get("COMPILE_OUTCOME","")}']
+          pdf=Path('main.pdf'); log=Path('main.log')
+          if not pdf.exists():
+              lines.append('pdf_created=no')
+              if log.exists():
+                  t=log.read_text(errors='replace')
+                  errors=[x for x in t.splitlines() if x.startswith('!') or 'Error' in x or 'Fatal' in x]
+                  lines += ['','ERRORS:']+(errors[-60:] or ['none'])
+              Path('compile_fast_audit.txt').write_text('\n'.join(lines)+'\n')
+              print('\n'.join(lines)); raise SystemExit
+          lines.append('pdf_created=yes')
+          subprocess.run(['pdfinfo','main.pdf'],stdout=open('pdfinfo.txt','w'))
+          subprocess.run(['pdftotext','-layout','main.pdf','main_layout.txt'])
+          text=Path('main_layout.txt').read_text(errors='replace')
+          pages=text.split('\f');
+          if pages and not pages[-1].strip(): pages=pages[:-1]
+          markers={
+           'section_vii':['VII. EXPERIMENTAL EVALUATION','EXPERIMENTAL EVALUATION'],
+           'belief':['Controlled belief distortion versus'],
+           'correction':['Post-attack correction time versus'],
+           'false_auth':['Controlled false-authorization probability'],
+           'policy':['Controlled deployed-policy drift'],
+           'baseline':['End-to-end restoration AURC'],
+           'intensity':['Feeder-level belief distortion on IEEE 33-bus'],
+           'ablation':['Security-boundary ablation on IEEE 33-bus'],
+           'scale':['Mean authorization-loop latency versus feeder size'],
+           'conclusion':['VIII. CONCLUSION','CONCLUSION'],
+           'references':['REFERENCES']}
+          found={k:[i for i,p in enumerate(pages,1) if any(n.lower() in p.lower() for n in ns)] for k,ns in markers.items()}
+          exp=(found['section_vii'] or [None])[0]; con=(found['conclusion'] or [None])[0]
+          lt=log.read_text(errors='replace') if log.exists() else ''
+          over=re.findall(r'Overfull \\hbox.*',lt)
+          undefref=re.findall(r"LaTeX Warning: Reference `[^']+' on page .* undefined",lt)
+          undefcite=re.findall(r"LaTeX Warning: Citation `[^']+' on page .* undefined",lt)
+          info=Path('pdfinfo.txt').read_text(errors='replace'); m=re.search(r'^Pages:\s+(\d+)',info,re.M)
+          lines += [f'page_count={m.group(1) if m else len(pages)}',
+                    f'experimental_start_page={exp}',f'conclusion_start_page={con}',
+                    f'experimental_page_span_before_conclusion={con-exp if exp and con else "NA"}',
+                    f'overfull_hbox_count={len(over)}',
+                    f'undefined_reference_count={len(undefref)}',
+                    f'undefined_citation_count={len(undefcite)}']
+          lines += [f'{k}_pages={",".join(map(str,v)) if v else "NOT_FOUND"}' for k,v in found.items()]
+          lines += ['','OVERFULL:']+(over[:40] or ['none'])
+          Path('compile_fast_audit.txt').write_text('\n'.join(lines)+'\n')
+          print('\n'.join(lines))
+          PY
+          if [ -f main.pdf ]; then
+            mkdir -p rendered
+            pdftoppm -png -r 144 main.pdf rendered/page >/dev/null 2>&1 || true
+            if compgen -G 'rendered/page-*.png' > /dev/null; then montage rendered/page-*.png -thumbnail 240x -tile 4x -geometry +4+4 contact_sheet.png || true; fi
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fast-manuscript-audit
+          path: |
+            manuscript/main.pdf
+            manuscript/main.log
+            manuscript/main_layout.txt
+            manuscript/compile_fast_audit.txt
+            manuscript/contact_sheet.png
+            manuscript/rendered
+          retention-days: 14
+
+      - name: Persist audit to debug branch
+        if: always()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f manuscript/compile_fast_audit.txt
+          if ! git diff --cached --quiet; then
+            git commit -m 'build: capture fast manuscript audit'
+            git push origin HEAD:compile-fast-20260819
+          fi
