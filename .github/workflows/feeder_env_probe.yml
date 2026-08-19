@@ -19,20 +19,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unpack environment
+      - name: Unpack environment and nested feeder archives
         shell: bash
         run: |
           set -euo pipefail
           ZIP=manuscript/figures/Code/kgfedmarl_env.zip
-          rm -rf /tmp/kgfedmarl_env
-          mkdir -p /tmp/kgfedmarl_env
+          rm -rf /tmp/kgfedmarl_env /tmp/ieee8500_outer /tmp/ieee8500_csv
+          mkdir -p /tmp/kgfedmarl_env /tmp/ieee8500_outer /tmp/ieee8500_csv
           unzip -q "$ZIP" -d /tmp/kgfedmarl_env
           echo '=== ZIP LIST ==='
           unzip -l "$ZIP" | sed -n '1,240p'
           echo '=== FILE TREE ==='
           find /tmp/kgfedmarl_env -maxdepth 6 -type f -printf '%P\t%k KB\n' | sort | sed -n '1,420p'
           echo '=== INNER 8500 ARCHIVE ==='
-          unzip -l /tmp/kgfedmarl_env/configs/8500node.zip | sed -n '1,260p' || true
+          unzip -l /tmp/kgfedmarl_env/configs/8500node.zip | sed -n '1,260p'
+          unzip -q /tmp/kgfedmarl_env/configs/8500node.zip -d /tmp/ieee8500_outer
+          echo '=== 8500 CSV PACKAGE ==='
+          unzip -l '/tmp/ieee8500_outer/IEEE-8500Node-CSV-R2b.zip' | sed -n '1,420p'
+          unzip -q '/tmp/ieee8500_outer/IEEE-8500Node-CSV-R2b.zip' -d /tmp/ieee8500_csv
+          echo '=== 8500 EXTRACTED TREE ==='
+          find /tmp/ieee8500_csv -maxdepth 4 -type f -printf '%P\t%s bytes\n' | sort | sed -n '1,500p'
+          echo '=== 8500 CSV/DSS/GLM HEADERS ==='
+          while IFS= read -r f; do
+            echo "===== ${f#/tmp/ieee8500_csv/} ====="
+            sed -n '1,35p' "$f" || true
+          done < <(find /tmp/ieee8500_csv -type f \( -iname '*.csv' -o -iname '*.dss' -o -iname '*.glm' -o -iname '*.txt' \) | sort | head -80)
+          echo '=== IEEE123 MASTER ==='
+          sed -n '1,240p' /tmp/kgfedmarl_env/configs/IEEE123Master.dss
+          echo '=== IEEE123 REDIRECTS ==='
+          grep -Ein 'redirect|compile|new +linecode|new +line|new +load|new +transformer' /tmp/kgfedmarl_env/configs/IEEE123Master.dss | sed -n '1,260p' || true
 
       - name: Print executable source
         shell: bash
@@ -57,7 +72,7 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
-          python -m pip install 'numpy>=1.26' 'pandas>=2.2' 'pandapower>=3.5' 'networkx>=3.2' 'rdflib>=7.0' 'pydantic>=2.0'
+          python -m pip install 'numpy>=1.26' 'pandas>=2.2' 'pandapower>=3.5' 'networkx>=3.2' 'rdflib>=7.0' 'pydantic>=2.0' 'dss-python>=0.15'
 
       - name: Run feeder and trust-plane smoke tests
         shell: bash
@@ -67,10 +82,24 @@ jobs:
           mkdir -p /tmp/feeder_smoke
           echo '=== IEEE33 ==='
           python feeders/pandapower_33_69.py --case ieee33 --out /tmp/feeder_smoke/ieee33.csv
-          echo '=== IEEE69 ==='
+          echo '=== IEEE69 PROGRAMMATIC ==='
           python feeders/pandapower_33_69.py --case ieee69 --out /tmp/feeder_smoke/ieee69.csv
           echo '=== 123 PROGRAMMATIC ==='
           python feeders/opendss_123.py --out /tmp/feeder_smoke/ieee123.csv
+          echo '=== DSS-PYTHON VERSION / MASTER COMPILE ATTEMPT ==='
+          python - <<'PY'
+          from dss import DSS
+          import pathlib
+          p=pathlib.Path('/tmp/kgfedmarl_env/configs/IEEE123Master.dss')
+          print('DSS object', DSS)
+          try:
+              DSS.Text.Command = f'Compile [{p}]'
+              print('compile_result', DSS.Text.Result)
+              print('num_buses', DSS.ActiveCircuit.NumBuses)
+              print('all_bus_names_head', list(DSS.ActiveCircuit.AllBusNames)[:10])
+          except Exception as e:
+              print('DSS_COMPILE_ERROR', type(e).__name__, str(e))
+          PY
           echo '=== BELIEF GRAPH ==='
           python kg_plane/belief_graph.py
           echo '=== RECOVERY GATE ==='
@@ -85,11 +114,14 @@ jobs:
 
       - name: Static import audit
         shell: bash
+        continue-on-error: true
         run: |
           set -euo pipefail
           cd /tmp/kgfedmarl_env
           python -m py_compile feeders/*.py cosim/*.py kg_plane/*.py
           python - <<'PY'
+          import pandapower.networks as nw
+          print('pandapower_network_names', [n for n in dir(nw) if '69' in n.lower() or '123' in n.lower() or '33' in n.lower()])
           from feeders import pandapower_33_69 as p3369
           from feeders import opendss_123 as p123
           print('build_33', len(p3369.build_33().bus))
@@ -106,6 +138,7 @@ jobs:
           mkdir -p "$OUT"
           find /tmp/kgfedmarl_env -maxdepth 6 -type f -printf '%P\t%s bytes\n' | sort > "$OUT/file_manifest.txt"
           unzip -l /tmp/kgfedmarl_env/configs/8500node.zip > "$OUT/8500_archive.txt" || true
+          find /tmp/ieee8500_csv -maxdepth 5 -type f -printf '%P\t%s bytes\n' | sort > "$OUT/8500_extracted_manifest.txt" || true
           cp -f /tmp/feeder_smoke/*.csv "$OUT/" 2>/dev/null || true
 
       - uses: actions/upload-artifact@v4
