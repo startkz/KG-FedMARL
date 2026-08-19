@@ -1,6 +1,6 @@
 \section{PROBLEM FORMULATION}
 \label{sec-problem-formulation}
-This section formalizes resilient restoration under adversarial recovery knowledge. The formulation separates four issues that were conflated in the original manuscript: partial observability, evidence-dependent action admissibility, worst-case recovery performance, and the security objective of bounding the propagation of erroneous knowledge. The attacker is modeled through the observation and evidence processes defined in Section~\ref{sec-system-model}, rather than as a cooperative decision agent.
+This section formalizes resilient restoration under adversarial recovery knowledge. The formulation separates partial observability, evidence-dependent action admissibility, worst-case recovery performance, and the security objective of bounding the propagation of erroneous knowledge. The attacker is modeled through the observation and evidence processes defined in Section~\ref{sec-system-model}, rather than as a cooperative decision agent.
 
 \subsection{Constrained Dec-POMDP under Adversarial Knowledge}
 \label{subsec-decpomdp}
@@ -17,9 +17,9 @@ where $\mathcal{X}$ is the latent cross-layer state space, $\mathbb{U}_i$ is the
 At time $t$, agent $i$ receives a local observation $o_{i,t}$ and has access to the task-relevant portion of the recovery belief state $\mathcal{B}_t$. Its decision information is written abstractly as
 \begin{align}
 \label{eq-information-state}
-\iota_{i,t}=\big(\tau_{i,t},\mathcal{B}^{i}_t\big),
+\iota_{i,t}=\big(h_{i,t},\mathcal{B}^{i}_t\big),
 \end{align}
-where $\tau_{i,t}=(o_{i,0},a_{i,0},\ldots,o_{i,t})$ is the local action--observation history and $\mathcal{B}^{i}_t\subseteq\mathcal{B}_t$ contains the recovery beliefs relevant to the agent's current task. The concrete extraction and encoding of $\mathcal{B}^{i}_t$ are implementation choices deferred to Section~V. A decentralized policy selects
+where $h_{i,t}=(o_{i,0},a_{i,0},\ldots,o_{i,t})$ is the local action--observation history and $\mathcal{B}^{i}_t\subseteq\mathcal{B}_t$ contains the recovery beliefs relevant to the agent's current task. The concrete extraction and encoding of $\mathcal{B}^{i}_t$ are implementation choices deferred to Section~V. A decentralized policy selects
 \begin{align}
 \label{eq-decentralized-policy}
 a_{i,t}\sim\pi_i(\cdot\mid\iota_{i,t}),
@@ -63,7 +63,7 @@ Equation~\ref{eq-belief-admissible-set} makes uncertainty explicit: insufficient
 \end{align}
 where $\bar{\delta}_{B}$ is selected according to the criticality of the restoration operation.
 
-Invariant safety is checked independently of the belief gate. Let $\widehat{\mathcal{X}}_t$ be a conservative set of physical states consistent with the currently trusted measurements and uncertainty bounds. We define
+Invariant safety is checked independently of the belief gate. Let $\widehat{\mathcal{X}}_t$ be the conservative physical-state set defined under the trust boundary in Section~\ref{subsec-threat-model}, with $x_t\in\widehat{\mathcal X}_t$. We define
 \begin{align}
 \label{eq-invariant-admissible-set}
 \mathbb{U}^{\rm inv}_t=
@@ -71,9 +71,9 @@ Invariant safety is checked independently of the belief gate. Let $\widehat{\mat
 &g_k(x,\mathbf{a})\le0,\ \forall k,\\
 &h_l(x,\mathbf{a})=0,\ \forall l,
 \ \forall x\in\widehat{\mathcal{X}}_t
-\Big\},\nonumber
+\Big\}.\nonumber
 \end{align}
-where $g_k$ and $h_l$ represent inequality and equality/structural constraints, respectively. The final admissible action set is
+The functions $g_k$ and $h_l$ represent inequality and equality/structural constraints, respectively. The final admissible action set is
 \begin{align}
 \label{eq-final-admissible-set}
 \mathbb{U}^{\rm adm}_t
@@ -98,11 +98,11 @@ R_t=
 -\lambda_{s}C^{\rm shed}_t
 -\lambda_{o}C^{\rm op}_t
 -\lambda_{c}C^{\rm cyber}_t
--\lambda_{f}C^{\rm fb}_t,
+-\lambda_{\rm fb}C^{\rm fb}_t,
 \end{align}
 where $C^{\rm shed}_t$, $C^{\rm op}_t$, $C^{\rm cyber}_t$, and $C^{\rm fb}_t$ denote critical-load curtailment, switching/dispatch cost, cyber-resource recovery cost, and fallback-service loss, respectively.
 
-Let $\mathfrak{A}(\Omega_A)$ denote the set of adversaries satisfying the capability and budget assumptions in Section~\ref{subsec-threat-model}. We seek a recovery policy and online belief-update rule that maximize worst-case expected recovery performance,
+Let $\mathfrak{A}(\Omega_A)$ denote the set of adversaries satisfying the capability and budget assumptions in Section~\ref{subsec-threat-model}. We seek a recovery policy and online belief-graph update rule that maximize worst-case expected recovery performance,
 \begin{align}
 \label{eq-minimax-objective}
 \max_{\Pi,F_B}\ \inf_{\mathscr{A}\in\mathfrak{A}(\Omega_A)}
@@ -110,7 +110,11 @@ Let $\mathfrak{A}(\Omega_A)$ denote the set of adversaries satisfying the capabi
 \left[\sum_{t=0}^{T}\gamma^t R_t\right],
 \end{align}
 where $\Pi=\{\pi_i\}_{i\in\mathcal{I}}$ and
-$F_B$ denotes the online update mapping that produces $\mathcal{B}_{t+1}$ from the previous belief state and newly received evidence. The optimization in Eq.~\ref{eq-minimax-objective} is subject to
+\begin{align}
+\label{eq-belief-update-map}
+F_B:(\mathcal G_t^B,\mathcal Z_{t+1})\mapsto\mathcal G_{t+1}^B
+\end{align}
+denotes the online recovery-belief update. The optimization in Eq.~\ref{eq-minimax-objective} is subject to
 \begin{align}
 \label{eq-execution-constraint}
 \mathbf{a}^{\rm exec}_t\in\mathbb{U}^{\rm adm}_t,
@@ -127,10 +131,10 @@ Here $\mathcal{X}_{\rm unsafe}$ and $\mathcal{X}_{\rm tar}$ denote the unsafe an
 
 \subsection{Security Objectives: Bounding Knowledge Propagation}
 \label{subsec-security-objectives}
-The distinguishing security objective of this work is to bound how far adversarial evidence can propagate through the recovery loop. We formalize this requirement at the knowledge, action, correction, and policy levels. These properties are design targets in this section; Section~V provides the mechanisms and the later theoretical analysis establishes sufficient conditions for them.
+The distinguishing security objective of this work is to bound how far adversarial evidence can propagate through the recovery loop. We formalize this requirement at the knowledge, action, correction, and policy levels. These properties are design targets in this section; Section~V provides the mechanisms and Section~VI establishes sufficient conditions for them.
 
 \emph{1) Bounded belief distortion.}
-Let $\mathcal{B}^{0}_t$ denote the counterfactual recovery belief state generated from uncompromised evidence under the same physical trajectory, and let $\mathcal{B}^{A}_t$ denote the belief state under an admissible attack. For the task-relevant assertion set $\mathcal{Q}_t$, define
+Let $\mathcal{B}^{0}_t$ denote the counterfactual recovery belief state generated from uncompromised evidence and $\mathcal{B}^{A}_t$ the belief state under an admissible attack. To isolate knowledge-plane sensitivity, the comparison is conditioned on the same realized physical/action history up to time $t$; full closed-loop divergence is evaluated through the recovery objective and experiments. For the task-relevant assertion set $\mathcal{Q}_t$, define
 \begin{align}
 \label{eq-belief-distance}
 D_B(\mathcal{B}^{A}_t,\mathcal{B}^{0}_t)
@@ -145,7 +149,6 @@ The first objective is the existence of a finite attack-budget-dependent bound
 D_B(\mathcal{B}^{A}_t,\mathcal{B}^{0}_t)
 \le \varepsilon_B(\Omega_A).
 \end{align}
-This rules out unbounded accumulation of influence from a bounded number of compromised provenance groups.
 
 \emph{2) Bounded false authorization.}
 Let $\mathbb{U}^{\star}_t$ denote the ground-truth admissible action set that satisfies both the true runtime prerequisites $q_t^{\star}$ and the invariant engineering constraints. A false authorization occurs when an action is admitted by the online belief state but is not contained in $\mathbb{U}^{\star}_t$. We require
@@ -157,10 +160,9 @@ Let $\mathbb{U}^{\star}_t$ denote the ground-truth admissible action set that sa
 \right)
 \le \delta_{\rm auth}.
 \end{align}
-This objective formalizes the desired barrier between erroneous knowledge and field control authority.
 
 \emph{3) Finite correction after poisoning.}
-Suppose an attack affecting assertion $q$ ceases at time $t_a$ and sufficient uncompromised evidence resumes. For tolerance $\epsilon_{\rm corr}>0$, define the correction time
+Suppose an attack affecting assertion $q$ ceases at time $t_a$ and sufficient uncompromised effective evidence resumes. For tolerance $\epsilon_{\rm corr}>0$, define the correction time
 \begin{align}
 \label{eq-correction-time}
 T_{\rm corr}(q)=
@@ -171,30 +173,29 @@ We seek conditions under which
 \label{eq-finite-correction}
 T_{\rm corr}(q)\le\overline{T}_{\rm corr}
 \end{align}
-for all task-critical assertions whose honest evidence becomes observable again. This prevents stale or poisoned recovery facts from persisting indefinitely after the attack ends.
+for all task-critical assertions whose trustworthy evidence becomes observable again.
 
 \emph{4) Bounded knowledge-to-policy propagation.}
-Let $\Pi^{A}_t$ and $\Pi^{0}_t$ denote online policies adapted from attacked and uncompromised recovery knowledge, respectively. We measure adversarially induced policy deviation by
+Let $\Pi^{A}_t$ and $\Pi^{0}_t$ denote online policies adapted from attacked and uncompromised recovery knowledge, respectively. To make cumulative policy drift comparable across promotion events, let $\mu^{\rm audit}$ be a fixed task-relevant audit distribution over information states and define
 \begin{align}
 \label{eq-policy-distance}
 D_{\pi}(\Pi^{A}_t,\Pi^{0}_t)
 =\frac{1}{N}\sum_{i=1}^{N}
-\mathbb{E}_{\iota\sim\mu_t}
+\mathbb{E}_{\iota\sim\mu^{\rm audit}}
 \left[
-D_{\rm KL}
+D_{\rm TV}
 \left(
-\pi^{A}_i(\cdot\mid\iota)
-\,\|\,
+\pi^{A}_i(\cdot\mid\iota),
 \pi^{0}_i(\cdot\mid\iota)
 \right)
-\right],
+\right].
 \end{align}
-where $\mu_t$ is the task-relevant information-state distribution. The required propagation bound is
+The required propagation bound is
 \begin{align}
 \label{eq-policy-propagation-bound}
 D_{\pi}(\Pi^{A}_t,\Pi^{0}_t)
 \le\varepsilon_{\pi}(\Omega_A).
 \end{align}
-The mechanism in Section~V enforces this objective by separating fast knowledge updates from slower trust-gated policy adaptation, so that a newly inserted or uncertain KG assertion cannot immediately alter the deployed recovery policy.
+Section~V enforces a KL trust region at each candidate-policy promotion, while Section~VI uses Pinsker's inequality on the fixed audit distribution to derive the deployed-policy bound in Eq.~\ref{eq-policy-propagation-bound}.
 
 Together, Eqs.~\ref{eq-bounded-belief-distortion}--\ref{eq-policy-propagation-bound} define the core security problem addressed by this paper: under incomplete, stale, conflicting, and partially adversarial recovery evidence, maintain an online knowledge state whose error remains bounded, prevent that error from directly authorizing unsafe recovery actions, correct poisoned knowledge within finite time once trustworthy evidence returns, and limit the resulting deviation of online recovery policies.

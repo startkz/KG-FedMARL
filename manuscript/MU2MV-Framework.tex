@@ -1,6 +1,6 @@
 \section{KG-FEDMARL: TRUSTWORTHY ONLINE RECOVERY FRAMEWORK}
 \label{sec-kgfedmarl}
-Section~\ref{sec-problem-formulation} identifies two propagation paths that must be controlled under adversarial recovery evidence: evidence can first distort the online knowledge state and then change action admissibility, while contaminated transitions can subsequently shift the deployed recovery policy. KG-FedMARL addresses these paths with three coupled mechanisms: a provenance-aware temporal belief update, a risk-aware recovery gate, and trust-gated policy adaptation. The three mechanisms operate on different time scales but share the same versioned evidence and authorization records. Federated learning, heterogeneous action heads, and graph encoders remain optional deployment components; none of them is part of the safety root.
+Section~\ref{sec-problem-formulation} identifies two propagation paths that must be controlled under adversarial recovery evidence: evidence can first distort the online knowledge state and then change action admissibility, while contaminated transitions can subsequently shift the deployed recovery policy. KG-FedMARL addresses these paths with three coupled mechanisms: a provenance-aware temporal belief update, a risk-aware recovery gate, and trust-gated policy adaptation. The three mechanisms operate on different time scales but share versioned evidence and authorization records. Federated learning, heterogeneous action heads, and graph encoders remain optional deployment components; none of them is part of the safety root.
 
 \subsection{Provenance-Aware Temporal Belief Update}
 \label{subsec-patb}
@@ -20,14 +20,18 @@ Reports that share a compromised upstream component must not accumulate as indep
 \begin{align}
 U_g(t)&=\sum_{j:g(z_j)=g}|\bar u_j(t)|,\\
 \label{eq-patb-group-scale}
-\kappa_g(t)&=\min\left\{1,\frac{\beta_g}{U_g(t)+\epsilon}\right\},
+\kappa_g(t)&=\min\left\{1,\frac{\beta_g}{U_g(t)+\epsilon_0}\right\},
 \end{align}
-where $\beta_g>0$ is the group influence budget. The effective contribution of $z_j$ is
+where $\beta_g>0$ is the group influence budget and $\epsilon_0>0$ is a numerical floor. The effective contribution of $z_j$ is
 \begin{align}
 \label{eq-patb-effective-influence}
 u_j(t)=\operatorname{clip}\!\left(\kappa_{g(z_j)}(t)\bar u_j(t),-\beta_z,\beta_z\right),
 \end{align}
-so both a single report and a correlated provenance group have bounded effect.
+so both a single report and a correlated provenance group have bounded effect. We denote the largest configured group budget by
+\begin{align}
+\label{eq-beta-max}
+\beta_{\max}=\max_g\beta_g.
+\end{align}
 
 The temporal belief update is
 \begin{align}
@@ -42,21 +46,21 @@ b_{t+1}(q)=\sigma\big(L_{t+1}(q)\big).
 \end{align}
 The prior $L_0(q)$ is obtained from the trusted semantic basis or a conservative initialization. Equation~\ref{eq-patb-update} prevents stale evidence from having permanent influence and, together with Eq.~\ref{eq-patb-group-scale}, yields the bounded-poisoning result in Section~\ref{sec-security-analysis}.
 
-Source reliability is updated only when independently verifiable feedback becomes available. A discounted Beta estimator is used,
+Source reliability is updated only when independently verifiable feedback becomes available. Let $m_s^t\in\{0,1\}$ indicate whether source $s$ has an independently verified claim at update $t$, and let $y_s^t\in\{0,1\}$ denote the verification outcome when $m_s^t=1$. A discounted Beta estimator is
 \begin{align}
-\alpha_s^{t+1}&=\lambda_\rho\alpha_s^t+y_s^t,\\
-\beta_s^{t+1}&=\lambda_\rho\beta_s^t+(1-y_s^t),\\
+\alpha_s^{t+1}&=\lambda_\rho\alpha_s^t+m_s^t y_s^t,\\
+\beta_s^{t+1}&=\lambda_\rho\beta_s^t+m_s^t(1-y_s^t),\\
 \label{eq-source-reliability}
 \rho_s(t+1)&=\frac{\alpha_s^{t+1}}{\alpha_s^{t+1}+\beta_s^{t+1}},
 \end{align}
-where $y_s^t\in\{0,1\}$ is defined only for an independently validated claim. Unresolved reports do not increase source reliability.
+where $0<\lambda_\rho\le1$. When $m_s^t=0$, the update applies only discounting; absence of verification is not interpreted as verification failure.
 
 \begin{algorithm}[t]
 \caption{Provenance-Aware Temporal Belief Update}
 \label{alg-patb}
 \KwIn{Belief graph $\mathcal{G}_t^B$; evidence $\mathcal{Z}_t$; verified feedback $\mathcal{Y}_t^{ver}$; $\lambda_f,\lambda_\rho,\{\beta_g\},\beta_z$}
 \KwOut{Updated belief graph $\mathcal{G}_{t+1}^B$}
-Update $\rho_s(t)$ from $\mathcal{Y}_t^{ver}$ using Eq.~\ref{eq-source-reliability}\;
+Derive $(m_s^t,y_s^t)$ from $\mathcal{Y}_t^{ver}$ and update $\rho_s(t)$ by Eq.~\ref{eq-source-reliability}\;
 Map each $z_j\in\mathcal{Z}_t$ to assertion $q_j$ and provenance group $g(z_j)$\;
 \ForEach{$z_j\in\mathcal{Z}_t$}{
   Calibrate $c_j^{src}$ and compute $\bar u_j(t)$ by Eq.~\ref{eq-patb-raw-influence}\;
@@ -79,7 +83,7 @@ Let $m_t=|\mathcal{Z}_t|$, $q_t$ be the number of affected assertions, and $d_p$
 \label{eq-complexity-patb}
 T_{\rm PATB}=O(m_td_p+q_t),
 \end{align}
-which becomes $O(m_t+q_t)$ when provenance roots are cached. The working memory is $O(m_t+q_t+g_t)$ for $g_t$ active provenance groups. The update is therefore scoped to the disturbance-local evidence rather than the full KG.
+which becomes $O(m_t+q_t)$ when provenance roots are cached. The working memory is $O(m_t+q_t+g_t)$ for $g_t$ active provenance groups. The update is therefore scoped to disturbance-local evidence rather than the full KG.
 
 \subsection{Risk-Aware Recovery Gate}
 \label{subsec-risk-gate}
@@ -98,40 +102,40 @@ The $\delta_q$ values are operation-dependent risk budgets rather than generic c
 For each action passing the semantic gate, the controller creates a versioned authorization context
 \begin{align}
 \label{eq-auth-context}
-\mathcal{C}_t(\mathbf{a})=
+\mathcal{H}^{\rm auth}_t(\mathbf{a})=
 \big\{\mathcal{Q}(\mathbf{a}),\{b_t(q)\},\mathcal{P}_t(\mathbf{a}),v_B\big\},
 \end{align}
 which binds the decision to the beliefs and provenance used at authorization time.
 
-Let $\mathcal{C}_t^0$ be the bounded candidate set proposed by the decentralized policy or local action expansion. After semantic gating, a learned surrogate is used only for ranking,
+Let $\mathbb{U}_t^0$ be the bounded candidate set proposed by the decentralized policy or local action expansion. After semantic gating, a learned surrogate is used only for ranking,
 \begin{align}
 \label{eq-gate-score}
 \operatorname{score}_t(\mathbf{a})=
 \widehat Q_t(\mathbf{a})-\lambda_v\widehat v_\chi(\mathbf{a})-\lambda_r r_B(\mathbf{a},t),
 \end{align}
-where $\widehat v_\chi$ estimates infeasibility or restoration cost. The surrogate is non-authoritative and cannot enlarge the admissible set. Ranked candidates are passed to an authoritative verifier
+where $\widehat v_\chi$ estimates infeasibility or restoration cost. The surrogate is non-authoritative and cannot enlarge the admissible set. Ranked candidates are passed to the authoritative verifier
 \begin{align}
 \label{eq-authoritative-verifier}
 \mathsf{Verify}(\mathbf{a},\widehat{\mathcal X}_t)=1
 \end{align}
-only when all required invariant constraints hold over the conservative state set $\widehat{\mathcal X}_t$. Depending on the action, the verifier may use AC power flow, a certified conservative approximation, reachability analysis, or a mixed-integer check. Verification proceeds until a safe candidate is found or the real-time budget $K_{max}$ is exhausted; otherwise a certified fallback is used.
+only when all required invariant constraints hold over $\widehat{\mathcal X}_t$. By the trust-boundary assumption in Section~\ref{subsec-threat-model}, the realized state satisfies $x_t\in\widehat{\mathcal X}_t$. Depending on the action, the verifier may use AC power flow, a certified conservative approximation, reachability analysis, or a mixed-integer check. Verification proceeds until a safe candidate is found or the real-time budget $K_{\max}$ is exhausted; otherwise a certified fallback is used.
 
 \begin{algorithm}[t]
 \caption{Risk-Aware Recovery Gate}
 \label{alg-risk-gate}
-\KwIn{Candidates $\mathcal{C}_t^0$; $\mathcal{G}_t^B$; $\widehat{\mathcal X}_t$; $\{\delta_q\},\bar\delta_B$; verification budget $K_{max}$}
+\KwIn{Candidates $\mathbb{U}_t^0$; $\mathcal{G}_t^B$; $\widehat{\mathcal X}_t$; $\{\delta_q\},\bar\delta_B$; verification budget $K_{\max}$}
 \KwOut{Executable action $\mathbf{a}_t^{exec}$ and authorization record $\mathcal{R}_t^{auth}$}
-$\mathcal{C}_t^B\leftarrow\emptyset$\;
-\ForEach{$\mathbf{a}\in\mathcal{C}_t^0$}{
+$\mathbb{U}_t^B\leftarrow\emptyset$\;
+\ForEach{$\mathbf{a}\in\mathbb{U}_t^0$}{
   Query $\mathcal{Q}(\mathbf{a})$, current beliefs, and supporting provenance\;
   \If{Eqs.~\ref{eq-gate-prerequisite}--\ref{eq-gate-risk-budget} hold}{
-    Build $\mathcal{C}_t(\mathbf{a})$ and insert $\mathbf{a}$ into $\mathcal{C}_t^B$\;
+    Build $\mathcal{H}^{\rm auth}_t(\mathbf{a})$ and insert $\mathbf{a}$ into $\mathbb{U}_t^B$\;
   }
 }
-Score and rank $\mathcal{C}_t^B$ using Eq.~\ref{eq-gate-score}\;
+Score and rank $\mathbb{U}_t^B$ using Eq.~\ref{eq-gate-score}\;
 $k\leftarrow0$\;
-\ForEach{ranked $\mathbf{a}\in\mathcal{C}_t^B$}{
-  \If{$k\ge K_{max}$}{break}
+\ForEach{ranked $\mathbf{a}\in\mathbb{U}_t^B$}{
+  \If{$k\ge K_{\max}$}{break}
   $k\leftarrow k+1$\;
   \If{$\mathsf{Verify}(\mathbf{a},\widehat{\mathcal X}_t)=1$}{
     Create $\mathcal{R}_t^{auth}$ with $v_B$, prerequisite beliefs, provenance groups, and verifier version\;
@@ -143,27 +147,27 @@ Execute certified fallback $\mathbf{a}_t^{fb}$ and record the rejection/fallback
 \end{algorithm}
 
 \noindent\textbf{Complexity.}
-Let $M_t=|\mathcal{C}_t^0|$, $\bar q$ be the maximum number of evidence-dependent prerequisites per action, $C_{sur}$ the cost of one surrogate/value evaluation, and $C_{phy}$ the cost of one authoritative verification. With indexed prerequisite relations,
+Let $M_t=|\mathbb{U}_t^0|$, $\bar q$ be the maximum number of evidence-dependent prerequisites per action, $C_{\rm sur}$ the cost of one surrogate/value evaluation, and $C_{\rm phy}$ the cost of one authoritative verification. The following cost is for gate processing after the bounded candidate set $\mathbb U_t^0$ has been generated. With indexed prerequisite relations,
 \begin{align}
 \label{eq-complexity-risk-gate}
-T_{\rm gate}=O\!\left(M_t\bar q+M_tC_{sur}+M_t\log M_t+K_{max}C_{phy}\right).
+T_{\rm gate}=O\!\left(M_t\bar q+M_tC_{\rm sur}+M_t\log M_t+K_{\max}C_{\rm phy}\right).
 \end{align}
-A bounded priority queue reduces ranking to $O(M_t+K_{max}\log M_t)$. Since $C_{phy}$ usually dominates, the practical objective is $K_{max}\ll M_t$ while keeping the verifier authoritative. Working memory is $O(M_t\bar q)$ if all authorization contexts are materialized and $O(M_t+\bar q)$ with lazy construction.
+A bounded priority queue reduces ranking to $O(M_t+K_{\max}\log M_t)$. Since $C_{\rm phy}$ usually dominates, the practical objective is $K_{\max}\ll M_t$ while keeping the verifier authoritative. Working memory is $O(M_t\bar q)$ if all authorization contexts are materialized and $O(M_t+\bar q)$ with lazy construction.
 
 \subsection{Trust-Gated Online Policy Adaptation}
 \label{subsec-trust-policy}
-The second propagation path arises when a transition collected under poisoned knowledge enters replay and repeatedly shifts the policy. KG-FedMARL therefore separates fast belief updates from slower policy adaptation. Each transition is bound to the belief, policy, and verifier versions used during execution,
+The second propagation path arises when a transition collected under poisoned knowledge enters replay and repeatedly shifts the policy. KG-FedMARL therefore separates fast belief updates from slower policy adaptation. Define the joint information state $\boldsymbol\iota_t=(\iota_{1,t},\ldots,\iota_{N,t})$. Each learning transition is bound to the belief, policy, and verifier versions used during execution,
 \begin{align}
 \label{eq-versioned-transition}
-\tau_t=(\iota_t,\mathbf{a}^{exec}_t,R_t,\iota_{t+1},v_B,v_\pi,v_V).
+\tau_t=(\boldsymbol\iota_t,\mathbf{a}^{exec}_t,R_t,\boldsymbol\iota_{t+1},v_B,v_\pi,v_V).
 \end{align}
 For the assertions referenced by its authorization record, define the belief-support term
 \begin{align}
 \label{eq-transition-belief-trust}
 \Gamma_B(\tau_t)=
-\exp\left(\sum_{q\in\mathcal{Q}(\tau_t)}\omega_q
-\log\big(\max\{b_t(q),\epsilon\}\big)\right),
-\qquad \sum_q\omega_q=1.
+\exp\left(\sum_{q\in\mathcal{Q}(\tau_t)}\varpi_q
+\log\big(\max\{b_t(q),\epsilon_0\}\big)\right),
+\qquad \sum_q\varpi_q=1.
 \end{align}
 Let $\Gamma_P,\Gamma_C,\Gamma_O\in[0,1]$ denote independent-provenance coverage, evidence completeness, and independently verified outcome consistency. The transition trust score is
 \begin{align}
@@ -171,32 +175,40 @@ Let $\Gamma_P,\Gamma_C,\Gamma_O\in[0,1]$ denote independent-provenance coverage,
 \Gamma_t=\Gamma_B^{\lambda_B}\Gamma_P^{\lambda_P}
 \Gamma_C^{\lambda_C}\Gamma_O^{\lambda_O},
 \end{align}
-with nonnegative exponents. The geometric form prevents a weak critical factor from being hidden by several high scores.
+where the enabled exponents are positive and normalized, $\lambda_B+\lambda_P+\lambda_C+\lambda_O=1$. The geometric form prevents a weak critical factor from being hidden by several high scores.
 
 New transitions first enter a pending buffer $\mathcal{D}^{pend}$. A transition is promoted to $\mathcal{D}^{trust}$ only when $\Gamma_t\ge\tau_H$, its authorization record is version-consistent, and its outcome has been independently verified. A transition with $\tau_L\le\Gamma_t<\tau_H$ remains quarantined; one with $\Gamma_t<\tau_L$ or a failed integrity check is excluded from online learning. Trusted samples use trust-weighted actor and critic losses,
 \begin{align}
 \label{eq-trust-actor-loss}
 \mathcal{L}_{\pi}&=-\mathbb{E}_{\tau_t\sim\mathcal{D}^{trust}}
-\left[\Gamma_t A_t\log\pi_\theta(\mathbf{a}_t\mid\iota_t)\right],\\
+\left[\Gamma_t A_t\log\Pi_\theta(\mathbf{a}^{exec}_t\mid\boldsymbol\iota_t)\right],\\
 \label{eq-trust-critic-loss}
 \mathcal{L}_{V}&=\mathbb{E}_{\tau_t\sim\mathcal{D}^{trust}}
-\left[\Gamma_t\big(V_\phi(\iota_t)-y_t\big)^2\right].
+\left[\Gamma_t\big(V_\phi(\boldsymbol\iota_t)-y_t\big)^2\right].
 \end{align}
-These losses are optimizer-agnostic; MAPPO, MADDPG, or another decentralized learner may be used without changing the trust boundary.
+These losses are optimizer-agnostic; MAPPO, MADDPG, or another decentralized learner may instantiate the optimizer without changing the trust boundary.
 
-The deployed policy $\Pi^{stable}$ is never overwritten directly. An adaptation event first produces $\Pi^{cand}$ and enforces
+The deployed policy $\Pi^{stable}$ is never overwritten directly. An adaptation event first produces $\Pi^{cand}$. Using the same fixed audit distribution $\mu^{\rm audit}$ as Eq.~\ref{eq-policy-distance}, define the promotion trust-region metric
+\begin{align}
+\label{eq-trust-kl-metric}
+D_{\rm KL}^{audit}(\Pi^{cand},\Pi^{stable})
+=\frac{1}{N}\sum_{i=1}^{N}\mathbb{E}_{\iota\sim\mu^{\rm audit}}
+\left[D_{\rm KL}\!\left(\pi_i^{cand}(\cdot\mid\iota)\|\pi_i^{stable}(\cdot\mid\iota)\right)\right].
+\end{align}
+The candidate must satisfy
 \begin{align}
 \label{eq-trust-kl-budget}
-\mathbb{E}_{\iota\sim\mu_t}
-\left[D_{\rm KL}\!\left(\Pi^{cand}(\cdot\mid\iota)\|\Pi^{stable}(\cdot\mid\iota)\right)\right]
-\le\epsilon_\pi(\bar\Gamma),
+D_{\rm KL}^{audit}(\Pi^{cand},\Pi^{stable})
+\le\kappa_\pi(\bar\Gamma),
 \end{align}
-where $\bar\Gamma$ is the mean trust of the update batch and $\epsilon_\pi(\cdot)$ is nondecreasing. Lower-trust data therefore cannot justify a larger policy change. Before promotion, $\Pi^{cand}$ is evaluated in shadow mode on current belief snapshots, recent disturbances, and fixed safety regression cases. Every validation action is passed through Algorithm~\ref{alg-risk-gate}. Promotion requires zero verified safety violations, acceptable recovery performance, the KL bound in Eq.~\ref{eq-trust-kl-budget}, and version compatibility; otherwise the candidate is discarded and the previous stable version is retained for rollback.
+where $\bar\Gamma$ is the mean trust of the update batch and $\kappa_\pi(\cdot)$ is nondecreasing. Lower-trust data therefore cannot justify a larger deployed-policy change.
+
+Before promotion, $\Pi^{cand}$ is evaluated in shadow mode on a validation suite $\mathcal{D}_t^{\rm val}$ containing current belief snapshots, recent disturbances, and fixed safety regression cases. Every validation action is passed through Algorithm~\ref{alg-risk-gate}. Promotion requires zero verified safety violations, acceptable recovery performance, the KL bound in Eq.~\ref{eq-trust-kl-budget}, and version compatibility; otherwise the candidate is discarded and the previous stable version is retained for rollback.
 
 \begin{algorithm}[t]
 \caption{Trust-Gated Online Recovery Policy Adaptation}
 \label{alg-trust-policy}
-\KwIn{$\mathcal{D}^{pend}$; $\mathcal{D}^{trust}$; stable policy $\Pi^{stable}$; validation suite $\mathcal{V}_t$; $\tau_L,\tau_H$; adaptation period $H_\pi$}
+\KwIn{$\mathcal{D}^{pend}$; $\mathcal{D}^{trust}$; stable policy $\Pi^{stable}$; validation suite $\mathcal{D}_t^{\rm val}$; $\tau_L,\tau_H$; adaptation period $H_\pi$}
 \KwOut{Stable policy and replay states}
 \ForEach{new or re-evaluated $\tau\in\mathcal{D}^{pend}$}{
   Compute $\Gamma_B,\Gamma_P,\Gamma_C,\Gamma_O$ and $\Gamma(\tau)$\;
@@ -205,10 +217,10 @@ where $\bar\Gamma$ is the mean trust of the update batch and $\epsilon_\pi(\cdot
   \Else{keep $\tau$ quarantined\;}
 }
 \If{fewer than $H_\pi$ control steps have elapsed since the last adaptation}{\Return{$\Pi^{stable}$}}
-Sample trusted minibatch $\mathcal{B}\subset\mathcal{D}^{trust}$ and compute $\bar\Gamma$\;
+Sample trusted minibatch $\mathcal{D}^{\rm mb}\subset\mathcal{D}^{trust}$ and compute $\bar\Gamma$\;
 Initialize $\Pi^{cand}\leftarrow\Pi^{stable}$ and optimize Eqs.~\ref{eq-trust-actor-loss}--\ref{eq-trust-critic-loss}\;
 Project or early-stop the update to satisfy Eq.~\ref{eq-trust-kl-budget}\;
-Evaluate $\Pi^{cand}$ in shadow mode on $\mathcal{V}_t$, routing every proposed action through Algorithm~\ref{alg-risk-gate}\;
+Evaluate $\Pi^{cand}$ in shadow mode on $\mathcal{D}_t^{\rm val}$, routing every proposed action through Algorithm~\ref{alg-risk-gate}\;
 \If{no verified safety violation, acceptable recovery performance, KL bound, and version checks all hold}{
   Archive the previous stable version and promote $\Pi^{cand}\rightarrow\Pi^{stable}$\;
 }
@@ -217,7 +229,7 @@ Evaluate $\Pi^{cand}$ in shadow mode on $\mathcal{V}_t$, routing every proposed 
 \end{algorithm}
 
 \noindent\textbf{Complexity.}
-Let $B$ be the trusted minibatch size, $\bar q$ the maximum number of referenced assertions per transition, $G$ the number of gradient steps, $C_{grad}(B)$ the cost of one gradient step, $M_v$ the number of validation scenarios, $H_v$ their average horizon, and $C_\pi$ one policy-inference cost. One adaptation event requires
+Let $B=|\mathcal D^{\rm mb}|$ be the trusted minibatch size, $\bar q$ the maximum number of referenced assertions per transition, $G$ the number of gradient steps, $C_{grad}(B)$ the cost of one gradient step, $M_v$ the number of validation scenarios, $H_v$ their average horizon, and $C_\pi$ one policy-inference cost. One adaptation event requires
 \begin{align}
 \label{eq-complexity-trust-policy}
 T_{\rm adapt}=O\!\left(B\bar q+GC_{grad}(B)+M_vH_v(C_\pi+T_{\rm gate})\right).

@@ -20,6 +20,7 @@ $\mathcal{Z}_t$ & Evidence-event set received at time $t$ \\
 $\mathcal{S}_{E}$ & Set of evidence sources \\
 $\mathcal{S}_{A}$ & Adversary-controlled evidence sources \\
 $\Omega_A$ & Adversarial evidence budget \\
+$\widehat{\mathcal X}_t$ & Conservative physical-state set used by verifier \\
 \bottomrule[1.5pt]
 \end{tabular}
 \end{table}
@@ -62,14 +63,14 @@ We define the \emph{recovery knowledge plane} as the semantic state used to repr
 \mathcal{G}^{B}_t=
 \big(\mathcal{T}^{0},\mathcal{A}_t,\mathcal{B}_t,\mathcal{P}_t,\mathcal{V}_t\big),
 \end{align}
-where $\mathcal{T}^{0}$ is the trusted ontology, schema, and invariant rule base; $\mathcal{A}_t$ is the set of runtime assertions; $\mathcal{B}_t$ contains beliefs over these assertions; $\mathcal{P}_t$ records evidence provenance and source dependencies; and $\mathcal{V}_t$ stores temporal validity information. The trusted layer $\mathcal{T}^{0}$ describes entity and relation types, immutable engineering semantics, protection rules, and authenticated configuration constraints. Runtime claims such as \emph{controller available}, \emph{measurement path trustworthy}, \emph{command route reachable}, or \emph{restoration action successful} belong to $\mathcal{A}_t$ and are not assumed to be correct merely because they have been inserted into the graph.
+where $\mathcal{T}^{0}$ is the trusted ontology, schema, and invariant rule base; $\mathcal{A}_t$ is the set of runtime assertions; $\mathcal{B}_t$ contains beliefs over these assertions; $\mathcal{P}_t$ records evidence provenance and source dependencies; and $\mathcal{V}_t$ stores temporal validity information. The trusted layer $\mathcal{T}^{0}$ describes entity and relation types, authenticated rule semantics, and invariant engineering limits. Mutable runtime settings, device status, and attack-time availability remain in $\mathcal{A}_t$ and cannot be promoted to trusted invariants by online evidence alone.
 
 For each dynamic assertion $q\in\mathcal{A}_t$, the system maintains a belief
 \begin{align}
 \label{eq-fact-belief}
 b_t(q)=\Pr\big(q_t^{\star}=1\mid \mathcal{Z}_{0:t}\big),\qquad b_t(q)\in[0,1],
 \end{align}
-where $q_t^{\star}$ denotes the unknown ground-truth status of $q$ and $\mathcal{Z}_{0:t}$ is the evidence history available up to time $t$. This representation avoids equating missing evidence with failure or the absence of an alarm with trustworthiness. A dynamic assertion may therefore remain uncertain until sufficient independent evidence is available.
+where $q_t^{\star}$ denotes the unknown ground-truth status of $q$ and $\mathcal{Z}_{0:t}$ is the evidence history available up to time $t$. Here $q$ is a Boolean or finite-valued operational predicate, or an interval assertion such as \emph{voltage-in-range}; raw continuous measurements remain evidence or physical-state variables rather than binary KG facts. This representation avoids equating missing evidence with failure or the absence of an alarm with trustworthiness. A dynamic assertion may therefore remain uncertain until sufficient independent evidence is available.
 
 Evidence is collected from heterogeneous sources
 \begin{align}
@@ -92,7 +93,7 @@ The provenance component $\mathcal{P}_t=(\mathcal{V}^{P}_t,\mathcal{E}^{P}_t)$ c
 
 \subsection{Threat Model and Trust Boundary}
 \label{subsec-threat-model}
-We consider an attacker whose objective is to corrupt the recovery knowledge plane so that incorrect beliefs alter restoration constraints or subsequent policy adaptation. The attacker may compromise a bounded subset of measurement devices, RTUs/IEDs, communication gateways, detector interfaces, local controllers, or outcome-reporting modules. Let
+We consider an attacker whose objective is to corrupt the recovery knowledge plane so that incorrect beliefs alter restoration constraints or subsequent policy adaptation. The attacker may compromise a bounded subset of measurement devices, RTUs/IEDs, communication gateways, detector interfaces, controller telemetry/reporting interfaces, or outcome-reporting modules. Let
 \begin{align}
 \label{eq-attacker-sources}
 \mathcal{S}_{A}\subseteq\mathcal{S}_{E}
@@ -111,8 +112,8 @@ We adopt a strong-knowledge adversary: the attacker may know the system topology
 \end{align}
 where $f_p$ bounds the number of compromised independent provenance groups, $B_z$ bounds manipulated evidence per decision window, $H_A$ is the attack duration, and $\epsilon_s$ bounds the magnitude of stealth-constrained continuous-data manipulation when applicable.
 
-The trusted computing base consists of the authenticated and read-only semantic basis $\mathcal{T}^{0}$, the evidence-ingestion logic, the implementation of the belief-update mechanism, version management, the final physical safety verifier, and a certified fallback controller. These components may process adversarial inputs but are not assumed to be code-compromised. The runtime assertion layer $\mathcal{A}_t$ is explicitly untrusted until its beliefs are established from evidence. A learned surrogate feasibility model is non-authoritative: it may rank or reject candidates but cannot independently authorize field execution. The physical verifier is authoritative for invariant operating constraints and evaluates uncertain runtime states over a conservative state set rather than trusting a single potentially corrupted measurement.
+The trusted computing base consists of the authenticated and read-only semantic basis $\mathcal{T}^{0}$, the evidence-ingestion logic, the implementation of the belief-update mechanism, version management, the protected actuation path, the final physical safety verifier, and a certified fallback controller. These components may process adversarial inputs but are not assumed to be code-compromised. The runtime assertion layer $\mathcal{A}_t$ is explicitly untrusted until its beliefs are established from evidence. A learned surrogate feasibility model is non-authoritative: it may rank or reject candidates but cannot independently authorize field execution. The authoritative verifier evaluates invariant constraints over a conservative state set $\widehat{\mathcal X}_t$ that is assumed to contain the realized state, i.e., $x_t\in\widehat{\mathcal X}_t$. This state-set containment, together with correct verifier implementation, is the physical-safety assumption used later in the security analysis.
 
-The coordinating/federated server, when used, is not part of the field-actuation trust root: it may coordinate model training but cannot bypass the local knowledge gate or the final physical verifier. Federated heterogeneity, shared encoders, personalized adapters, and aggregation rules are treated as implementation infrastructure rather than as the security contribution of this work.
+A compromised controller interface in our threat model may corrupt telemetry, status, or outcome evidence, but it cannot bypass the authenticated actuation path or the authoritative verifier to issue an unchecked field command. Direct takeover of the protected actuation path is outside the recovery-knowledge-poisoning guarantees and, when studied experimentally, is treated as an exogenous cyber-physical disturbance in $\xi_t$. The coordinating/federated server, when used, is likewise not part of the field-actuation trust root: it may coordinate model training but cannot bypass the local knowledge gate or the final physical verifier. Federated heterogeneity, shared encoders, personalized adapters, and aggregation rules are treated as implementation infrastructure rather than as the security contribution of this work.
 
 Under this model, the attacker's ultimate objective is not merely to change a graph attribute. It is to create a chain of influence from adversarial evidence to an incorrect recovery belief, from that belief to an erroneous action constraint, and potentially from repeated erroneous evidence to an unsafe policy update. Section~IV formalizes the admissibility, recovery, and propagation-control objectives, while Section~V specifies the mechanisms used to bound this influence.

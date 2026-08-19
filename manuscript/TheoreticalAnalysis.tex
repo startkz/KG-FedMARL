@@ -1,38 +1,47 @@
 \section{SECURITY ANALYSIS}
 \label{sec-security-analysis}
-We next establish four mechanism-level guarantees corresponding to the security objectives in Section~\ref{subsec-security-objectives}. The analysis is intentionally scoped to the trust boundaries enforced by Algorithms~\ref{alg-patb}--\ref{alg-trust-policy}; it does not assume that the full nonlinear PCPS or the underlying MARL optimizer admits a global convergence proof.
+We next establish four mechanism-level guarantees corresponding to the security objectives in Section~\ref{subsec-security-objectives}. The analysis is intentionally scoped to the trust boundaries enforced by Algorithms~\ref{alg-patb}--\ref{alg-trust-policy}; it does not assume that the full nonlinear PCPS or the underlying MARL optimizer admits a global convergence proof. Throughout the analysis, source identities and the protected actuation path are authenticated, the authoritative verifier is correctly implemented, and its conservative state set contains the realized state, $x_t\in\widehat{\mathcal X}_t$.
 
 \subsection{Bounded Poisoning Influence}
 \begin{theorem}[Bounded poisoning influence]
 \label{thm-bounded-poisoning}
-Consider one assertion $q$ and two belief trajectories with the same initial log-odds, trusted prior, honest evidence, and independently verified feedback. Suppose the attacked trajectory additionally contains evidence from at most $f_p$ compromised provenance groups per update, each with group cap $\beta_g\le\beta_{max}$. Under $0<\lambda_f<1$, the adversarial log-odds deviation satisfies
+Consider one assertion $q$ and attacked/reference belief trajectories with the same initial log-odds and trusted prior. Assume that effective contributions from uncompromised provenance groups are identical in the two trajectories; any attack-induced change to an uncompromised contribution must otherwise be charged to the adversarial budget. Suppose at most $f_p$ provenance groups differ between the two trajectories in one update, and each satisfies the group cap $\beta_g\le\beta_{\max}$. Under $0<\lambda_f<1$,
 \begin{align}
 \label{eq-thm-logodds-bound}
 |L_t^A(q)-L_t^0(q)|
-\le \frac{f_p\beta_{max}}{1-\lambda_f},
+\le \frac{2f_p\beta_{\max}}{1-\lambda_f},
 \end{align}
-and the corresponding belief deviation satisfies
+and
 \begin{align}
 \label{eq-thm-belief-bound}
 |b_t^A(q)-b_t^0(q)|
-\le \frac{f_p\beta_{max}}{4(1-\lambda_f)}.
+\le \frac{f_p\beta_{\max}}{2(1-\lambda_f)}.
+\end{align}
+Consequently, the normalized weighted belief metric in Eq.~\ref{eq-belief-distance} satisfies
+\begin{align}
+\label{eq-thm-global-belief-bound}
+D_B(\mathcal B_t^A,\mathcal B_t^0)
+\le \varepsilon_B(\Omega_A),\qquad
+\varepsilon_B(\Omega_A)=
+\min\left\{1,\frac{f_p\beta_{\max}}{2(1-\lambda_f)}\right\}.
 \end{align}
 \end{theorem}
 
 \begin{proof}
-By Eq.~\ref{eq-patb-group-scale}, the total absolute contribution of one provenance group in one update is at most $\beta_g$. Hence the malicious contribution at time $t$ has magnitude at most $f_p\beta_{max}$. Let $\Delta_t=L_t^A(q)-L_t^0(q)$. Since the honest terms are identical in the two trajectories, Eq.~\ref{eq-patb-update} gives
+For provenance group $g$, Eqs.~\ref{eq-patb-group-scale}--\ref{eq-patb-effective-influence} ensure that the total absolute effective contribution is at most $\beta_g$. Hence if $U_{g,t}^A(q)$ and $U_{g,t}^0(q)$ denote the aggregate contributions of group $g$ to assertion $q$ in the attacked and reference trajectories, respectively,
 \begin{align}
-|\Delta_{t+1}|\le\lambda_f|\Delta_t|+f_p\beta_{max}.
+|U_{g,t}^A(q)-U_{g,t}^0(q)|
+\le |U_{g,t}^A(q)|+|U_{g,t}^0(q)|
+\le 2\beta_g.
 \end{align}
-With $\Delta_0=0$, unrolling the recursion yields
+All uncompromised-group terms cancel by assumption, and at most $f_p$ groups differ. With $\Delta_t=L_t^A(q)-L_t^0(q)$, Eq.~\ref{eq-patb-update} therefore gives
 \begin{align}
-|\Delta_t|\le f_p\beta_{max}\sum_{k=0}^{t-1}\lambda_f^k
-\le\frac{f_p\beta_{max}}{1-\lambda_f}.
+|\Delta_{t+1}|\le\lambda_f|\Delta_t|+2f_p\beta_{\max}.
 \end{align}
-The sigmoid derivative is at most $1/4$, so $|\sigma(x)-\sigma(y)|\le|x-y|/4$, which gives Eq.~\ref{eq-thm-belief-bound}.
+Starting from $\Delta_0=0$ and unrolling the recursion yields Eq.~\ref{eq-thm-logodds-bound}. Since the sigmoid derivative is at most $1/4$, $|\sigma(x)-\sigma(y)|\le|x-y|/4$, which gives Eq.~\ref{eq-thm-belief-bound}. Finally, Eq.~\ref{eq-belief-distance} is a convex combination of per-assertion deviations, so the same upper bound applies to $D_B$; clipping by one uses the fact that belief differences are at most one.
 \end{proof}
 
-The result shows that bounded evidence control produces bounded knowledge distortion even under repeated evidence injection; the attacker cannot increase influence merely by duplicating reports behind the same provenance group.
+The factor two is the general bound for fabrication, suppression, or modification: a compromised provenance group may move from one capped contribution in the reference trajectory to an opposite capped contribution in the attacked trajectory. Injection-only attacks can admit a tighter bound, but are not assumed here.
 
 \subsection{False-Authorization Risk}
 \begin{theorem}[False-authorization risk bound]
@@ -43,7 +52,7 @@ Let action $\mathbf{a}$ require prerequisites $\mathcal{Q}(\mathbf{a})$. Assume 
 \Pr(q_t^\star=0\mid b_t(q)\ge1-\delta_q)
 \le\delta_q+\varepsilon_q.
 \end{align}
-If Algorithm~\ref{alg-risk-gate} enforces Eqs.~\ref{eq-gate-prerequisite}--\ref{eq-gate-risk-budget} and the authoritative verifier correctly enforces invariant constraints, then
+Assume also that $x_t\in\widehat{\mathcal X}_t$ and the authoritative verifier correctly enforces the invariant constraints over $\widehat{\mathcal X}_t$. If Algorithm~\ref{alg-risk-gate} enforces Eqs.~\ref{eq-gate-prerequisite}--\ref{eq-gate-risk-budget}, then
 \begin{align}
 \label{eq-thm-auth-bound}
 \Pr(\mathbf{a}\ \text{is falsely authorized})
@@ -51,82 +60,95 @@ If Algorithm~\ref{alg-risk-gate} enforces Eqs.~\ref{eq-gate-prerequisite}--\ref{
 \sum_{q\in\mathcal{Q}(\mathbf{a})}(\delta_q+\varepsilon_q)
 \le\bar\delta_B+\sum_{q\in\mathcal{Q}(\mathbf{a})}\varepsilon_q.
 \end{align}
+In particular, the Section~\ref{subsec-security-objectives} target in Eq.~\ref{eq-false-authorization-bound} is satisfied whenever
+\begin{align}
+\label{eq-auth-budget-closure}
+\bar\delta_B+\sum_{q\in\mathcal{Q}(\mathbf{a})}\varepsilon_q
+\le\delta_{\rm auth}.
+\end{align}
 \end{theorem}
 
 \begin{proof}
-A semantic false authorization requires at least one prerequisite in $\mathcal{Q}(\mathbf{a})$ to be false while passing Eq.~\ref{eq-gate-prerequisite}. By Eq.~\ref{eq-calibration-assumption} and the union bound, the probability of this event is at most $\sum_q(\delta_q+\varepsilon_q)$. Equation~\ref{eq-gate-risk-budget} gives $\sum_q\delta_q\le\bar\delta_B$. Invariant physical violations are independently rejected by the authoritative verifier and therefore do not increase the semantic bound under the stated verifier assumption.
+A semantic false authorization requires at least one prerequisite in $\mathcal{Q}(\mathbf{a})$ to be false while passing Eq.~\ref{eq-gate-prerequisite}. By Eq.~\ref{eq-calibration-assumption} and the union bound, the probability of this event is at most $\sum_q(\delta_q+\varepsilon_q)$. Equation~\ref{eq-gate-risk-budget} gives $\sum_q\delta_q\le\bar\delta_B$. Under state-set containment and verifier soundness, invariant physical violations are rejected independently and therefore do not enlarge this semantic bound. Equation~\ref{eq-auth-budget-closure} then closes the target $\delta_{\rm auth}$.
 \end{proof}
-
-This result separates knowledge uncertainty from physical verification: belief quality determines the semantic authorization risk, while invariant safety remains protected by the independent verifier.
 
 \subsection{Finite Belief Correction}
 \begin{theorem}[Finite correction after poisoning]
 \label{thm-finite-correction}
-Suppose an attack on assertion $q$ ends at time $t_a$ and, from that time onward, the attacked and reference trajectories receive the same uncompromised evidence and verified feedback. Let
+Suppose an attack on assertion $q$ ends at time $t_a$. From that time onward, assume the attacked and reference belief processes receive identical \emph{effective} uncompromised evidence contributions and verified feedback; equivalently, any residual mismatch in source-reliability or consistency weights has already been resolved or is separately budgeted. Let
 \begin{align}
 \Delta_a=|L_{t_a}^A(q)-L_{t_a}^0(q)|.
 \end{align}
-Under $0<\lambda_f<1$, the belief difference after $k$ additional updates satisfies
+Under $0<\lambda_f<1$, after $k$ additional updates,
 \begin{align}
 \label{eq-thm-correction-decay}
 |b_{t_a+k}^A(q)-b_{t_a+k}^0(q)|
 \le\frac{\lambda_f^k\Delta_a}{4}.
 \end{align}
-Consequently, for tolerance $\epsilon_{corr}>0$, a sufficient correction time is
+Consequently, for $\epsilon_{\rm corr}>0$,
 \begin{align}
 \label{eq-thm-correction-time}
-T_{corr}(q)
+T_{\rm corr}(q)
 \le
 \left\lceil
-\frac{\ln\!\left(\max\{1,\Delta_a/(4\epsilon_{corr})\}\right)}
+\frac{\ln\!\left(\max\{1,\Delta_a/(4\epsilon_{\rm corr})\}\right)}
 {\ln(1/\lambda_f)}
 \right\rceil.
+\end{align}
+If the two trajectories were aligned before an attack lasting at most $H_A$ updates, then Theorem~\ref{thm-bounded-poisoning} also gives the sufficient pre-correction bound
+\begin{align}
+\label{eq-attack-duration-deviation}
+\Delta_a\le
+\frac{2f_p\beta_{\max}(1-\lambda_f^{H_A})}{1-\lambda_f}.
 \end{align}
 \end{theorem}
 
 \begin{proof}
-After $t_a$, no additional adversarial term remains and both trajectories receive identical new evidence. Subtracting their instances of Eq.~\ref{eq-patb-update} gives $|\Delta_{t+1}|=\lambda_f|\Delta_t|$, hence $|\Delta_{t_a+k}|=\lambda_f^k\Delta_a$. Applying the $1/4$ Lipschitz constant of the sigmoid yields Eq.~\ref{eq-thm-correction-decay}. Solving $\lambda_f^k\Delta_a/4\le\epsilon_{corr}$ for $k$ gives Eq.~\ref{eq-thm-correction-time}.
+After $t_a$, the effective non-adversarial contributions in the two belief recursions are identical, so subtracting their instances of Eq.~\ref{eq-patb-update} gives $|\Delta_{t+1}|=\lambda_f|\Delta_t|$. Hence $|\Delta_{t_a+k}|=\lambda_f^k\Delta_a$. Applying the $1/4$ Lipschitz constant of the sigmoid yields Eq.~\ref{eq-thm-correction-decay}; solving $\lambda_f^k\Delta_a/4\le\epsilon_{\rm corr}$ yields Eq.~\ref{eq-thm-correction-time}. If the attack begins from aligned beliefs, repeatedly applying the one-step deviation bound $2f_p\beta_{\max}$ for at most $H_A$ updates gives the finite geometric sum in Eq.~\ref{eq-attack-duration-deviation}.
 \end{proof}
 
-The bound is conservative because consistent post-attack evidence can correct the belief faster than temporal forgetting alone.
+The result is deliberately a sufficient condition. When post-attack effective weights do not immediately coincide, the same recursion acquires a residual-input term and converges to a corresponding error floor rather than necessarily to zero.
 
 \subsection{Bounded Policy Drift}
 \begin{theorem}[Trust-gated deployed-policy drift]
 \label{thm-policy-drift}
-Consider attacked and reference deployments that start from the same stable policy and undergo at most $K$ successful promotion events. At promotion $k$, let the attacked and reference candidates satisfy the KL constraints
+Let the attacked and reference deployments start from the same stable policy and be compared on the fixed audit distribution $\mu^{\rm audit}$ from Eq.~\ref{eq-policy-distance}. Suppose each deployment undergoes at most $K$ successful promotions. At promotion $k$, Algorithm~\ref{alg-trust-policy} enforces
 \begin{align}
-D_{\rm KL}(\Pi_k^A\|\Pi_{k-1}^A)&\le\epsilon_k^A,\\
-D_{\rm KL}(\Pi_k^0\|\Pi_{k-1}^0)&\le\epsilon_k^0,
+D_{\rm KL}^{audit}(\Pi_k^A,\Pi_{k-1}^A)&\le\kappa_k^A,\\
+D_{\rm KL}^{audit}(\Pi_k^0,\Pi_{k-1}^0)&\le\kappa_k^0,
 \end{align}
-where $\epsilon_k^A=\epsilon_\pi(\bar\Gamma_k^A)$ is enforced by Algorithm~\ref{alg-trust-policy}. Then the total-variation distance after $K$ promotions is bounded by
+where $\kappa_k^A=\kappa_\pi(\bar\Gamma_k^A)$ and $\kappa_k^0=\kappa_\pi(\bar\Gamma_k^0)$. Then
 \begin{align}
 \label{eq-thm-tv-policy}
-D_{TV}(\Pi_K^A,\Pi_K^0)
+D_{\pi}(\Pi_K^A,\Pi_K^0)
 \le
 \sum_{k=1}^{K}
-\left(\sqrt{\frac{\epsilon_k^A}{2}}+
-\sqrt{\frac{\epsilon_k^0}{2}}\right).
+\left(\sqrt{\frac{\kappa_k^A}{2}}+
+\sqrt{\frac{\kappa_k^0}{2}}\right).
 \end{align}
-For a finite action head whose reference policy probabilities are lower bounded by $p_{min}>0$, this further implies
+Thus Eq.~\ref{eq-policy-propagation-bound} holds with
 \begin{align}
-\label{eq-thm-kl-policy}
-D_{\rm KL}(\Pi_K^A\|\Pi_K^0)
-\le
-\frac{4}{p_{min}}
-\left[
+\label{eq-global-policy-epsilon}
+\varepsilon_\pi(\Omega_A)
+=\min\left\{1,
 \sum_{k=1}^{K}
-\left(\sqrt{\frac{\epsilon_k^A}{2}}+
-\sqrt{\frac{\epsilon_k^0}{2}}\right)
-\right]^2.
+\left(\sqrt{\frac{\kappa_k^A}{2}}+
+\sqrt{\frac{\kappa_k^0}{2}}\right)
+\right\}.
 \end{align}
 \end{theorem}
 
 \begin{proof}
-Pinsker's inequality gives
-$D_{TV}(\Pi_k^A,\Pi_{k-1}^A)\le\sqrt{\epsilon_k^A/2}$ and the analogous bound for the reference policy. Applying the triangle inequality recursively from the common initial policy yields Eq.~\ref{eq-thm-tv-policy}. For a finite action distribution with $\Pi_K^0(a)\ge p_{min}$, $D_{\rm KL}(P\|Q)\le\chi^2(P\|Q)\le\|P-Q\|_1^2/p_{min}=4D_{TV}^2(P,Q)/p_{min}$, giving Eq.~\ref{eq-thm-kl-policy}.
+For one promotion and one agent, Pinsker's inequality gives
+$D_{\rm TV}(P,Q)\le\sqrt{D_{\rm KL}(P\|Q)/2}$. Taking expectation under the fixed $\mu^{\rm audit}$ and then averaging over agents, Jensen's inequality yields
+\begin{align}
+D_{\pi}(\Pi_k,\Pi_{k-1})
+\le\sqrt{D_{\rm KL}^{audit}(\Pi_k,\Pi_{k-1})/2}.
+\end{align}
+Applying this bound to the attacked and reference promotions and using the triangle inequality of total variation recursively from the common initial policy gives Eq.~\ref{eq-thm-tv-policy}. Since total variation is at most one, clipping the right-hand side by one gives Eq.~\ref{eq-global-policy-epsilon}.
 \end{proof}
 
-Because $\epsilon_\pi(\cdot)$ is nondecreasing, lower-trust update batches cannot receive a larger promotion radius. The theorem therefore formalizes the role of stable--candidate separation: adversarial evidence may alter candidate learning, but each deployed change remains explicitly bounded and must also pass shadow validation and the recovery gate.
+Because $\kappa_\pi(\cdot)$ is nondecreasing, lower-trust update batches cannot receive a larger promotion radius. The theorem therefore formalizes the role of stable--candidate separation without requiring a positive lower bound on every action probability; KL is the enforceable promotion metric, while total variation is the cumulative security metric.
 
 \subsection{Scope of the Guarantees}
-The four results are conditional security guarantees rather than a global convergence theorem for heterogeneous MARL. They require the trusted components specified in Section~\ref{subsec-threat-model}: authenticated source identity, correct implementation of the provenance cap and belief update, and an uncompromised authoritative verifier. They do not protect against arbitrary corruption of the TBox, verifier code, or all independent provenance groups simultaneously. These boundaries are evaluated explicitly in the experiments rather than hidden inside a general learning-convergence claim.
+The four results are conditional security guarantees rather than a global convergence theorem for heterogeneous MARL. They require the trusted components specified in Section~\ref{subsec-threat-model}: authenticated source identities, a protected actuation path, correct implementation of provenance grouping and belief updates, state-set containment $x_t\in\widehat{\mathcal X}_t$, and an uncompromised authoritative verifier. The belief-distortion and correction results additionally condition on matched effective contributions from uncompromised provenance groups when comparing attacked and reference trajectories. They do not protect against arbitrary corruption of $\mathcal T^0$, verifier code, or all independent provenance groups simultaneously. Full closed-loop recovery effects beyond the conditional knowledge-plane comparisons are evaluated empirically rather than hidden inside a general learning-convergence claim.
