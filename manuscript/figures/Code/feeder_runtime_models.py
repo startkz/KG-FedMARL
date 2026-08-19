@@ -110,16 +110,17 @@ class OpenDSSAdapter(BaseAdapter):
         self.feeder = feeder
         self.master = Path(master).resolve()
         DSS.Text.Command = f"Compile [{self.master}]"
+        # Static mode is the OpenDSS snapshot-control mode intended for power
+        # flows that may require several regulator tap changes.  The default
+        # MaxControlIter=10 is too small for the 8500-node feeder after large
+        # block-shedding changes, so allow the regulator/capacitor controls to
+        # settle rather than freezing them at the pre-disturbance state.
         DSS.Text.Command = "Set Maxiterations=50"
-        # First settle the canonical feeder with its autonomous regulator and
-        # capacitor controls enabled.  Candidate recovery checks then freeze
-        # this solved control state.  This prevents regulator hunting after
-        # large block shedding in the 8500-node benchmark and makes the
-        # authoritative check a deterministic fixed-control-state AC verifier.
+        DSS.Text.Command = "Set MaxControlIter=1000"
+        DSS.Text.Command = "Set ControlMode=Static"
         DSS.Text.Command = "Solve"
         if not bool(DSS.ActiveCircuit.Solution.Converged):
             raise RuntimeError(f"OpenDSS base case did not converge: {self.master}")
-        DSS.Text.Command = "Set ControlMode=Off"
         self.n_nodes = int(DSS.ActiveCircuit.NumBuses)
         loads = DSS.ActiveCircuit.Loads
         names, kws = [], []
