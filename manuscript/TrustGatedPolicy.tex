@@ -1,0 +1,129 @@
+\section{TRUST-GATED ONLINE RECOVERY POLICY ADAPTATION}
+\label{sec-trust-policy}
+The previous two sections bound the influence of adversarial evidence on the belief graph and prevent uncertain knowledge from directly authorizing a field action. A remaining propagation channel is online learning itself: a transition collected under poisoned knowledge can be stored in replay memory and repeatedly shift the policy long after the original evidence has disappeared. We therefore separate fast knowledge adaptation from slower policy adaptation and require every online transition and every candidate policy update to cross an explicit trust gate.
+
+\subsection{Transition Trust and Quarantined Replay}
+Let
+\begin{align}
+\label{eq-transition}
+\tau_t=(\iota_t,\mathbf{a}^{exec}_t,R_t,\iota_{t+1},v_B,v_\pi,v_V)
+\end{align}
+be a recovery transition bound to the belief-graph version $v_B$, deployed-policy version $v_\pi$, and verifier version $v_V$ used when the action was authorized. For the assertions involved in the corresponding authorization record, define a belief-support term
+\begin{align}
+\label{eq-transition-belief-trust}
+\Gamma_B(\tau_t)=
+\exp\left(
+\sum_{q\in\mathcal{Q}(\tau_t)}\omega_q
+\log\big(\max\{b_t(q),\epsilon\}\big)
+\right),
+\qquad \sum_q\omega_q=1.
+\end{align}
+We additionally use $\Gamma_P(\tau_t)\in[0,1]$ for independent-provenance coverage, $\Gamma_C(\tau_t)\in[0,1]$ for evidence completeness, and $\Gamma_O(\tau_t)\in[0,1]$ for consistency between the reported outcome and independently verifiable physical or authenticated execution records. The transition trust score is
+\begin{align}
+\label{eq-transition-trust}
+\Gamma_t=
+\Gamma_B^{\lambda_B}
+\Gamma_P^{\lambda_P}
+\Gamma_C^{\lambda_C}
+\Gamma_O^{\lambda_O},
+\end{align}
+where all exponents are nonnegative. If an outcome has not yet been independently verified, $\Gamma_O$ remains unresolved and the transition cannot enter trusted replay merely because its reported reward is favorable.
+
+Three replay states are maintained. A new transition first enters a pending buffer $\mathcal{D}^{pend}$. It is promoted to trusted replay $\mathcal{D}^{trust}$ only when $\Gamma_t\ge\tau_H$ and the authorization and outcome records are internally consistent. A transition with $\tau_L\le\Gamma_t<\tau_H$ remains quarantined until additional evidence arrives, while a transition with $\Gamma_t<\tau_L$ or a failed integrity check is rejected for online policy adaptation. Rejected transitions may be retained in an audit store but are not sampled for actor or critic updates.
+
+For trusted transitions, the actor and critic use trust-weighted losses. A generic actor objective is
+\begin{align}
+\label{eq-trust-actor-loss}
+\mathcal{L}_{\pi}=
+-\mathbb{E}_{\tau_t\sim\mathcal{D}^{trust}}
+\left[\Gamma_t A_t\log\pi_\theta(\mathbf{a}_t\mid\iota_t)\right],
+\end{align}
+and the corresponding critic objective is
+\begin{align}
+\label{eq-trust-critic-loss}
+\mathcal{L}_{V}=
+\mathbb{E}_{\tau_t\sim\mathcal{D}^{trust}}
+\left[\Gamma_t\big(V_\phi(\iota_t)-y_t\big)^2\right].
+\end{align}
+These equations do not prescribe a specific actor--critic algorithm; MAPPO, MADDPG, or another decentralized learner can instantiate the policy optimizer as long as the trust gate and deployment constraints are preserved.
+
+\subsection{Stable--Candidate Policy Separation}
+The deployed recovery policy $\Pi^{stable}$ is never overwritten directly by a newly trained model. Every online update first produces a candidate $\Pi^{cand}$. Let $\bar\Gamma$ denote the mean trust of transitions used by the current update. The candidate is constrained by a trust-dependent policy-drift budget
+\begin{align}
+\label{eq-trust-kl-budget}
+\mathbb{E}_{\iota\sim\mu_t}
+\left[D_{\rm KL}\left(
+\Pi^{cand}(\cdot\mid\iota)\,\|\,\Pi^{stable}(\cdot\mid\iota)
+\right)\right]
+\le\epsilon_\pi(\bar\Gamma),
+\end{align}
+where $\epsilon_\pi(\cdot)$ is nondecreasing. Low-trust evidence therefore permits only a small candidate update even if those transitions have passed the minimum replay threshold.
+
+Before promotion, the candidate is evaluated in shadow mode on a validation suite $\mathcal{V}_t$ containing current belief snapshots, recent disturbances, and fixed safety regression cases. Each proposed validation action is passed through the same risk-aware gate and authoritative verifier used online. The candidate is promoted only if
+\begin{align}
+\label{eq-policy-promotion}
+N_{viol}(\Pi^{cand},\mathcal{V}_t)&=0,\\
+J(\Pi^{cand},\mathcal{V}_t)&\ge J(\Pi^{stable},\mathcal{V}_t)-\Delta_J,\\
+D_{\rm KL}(\Pi^{cand}\|\Pi^{stable})&\le\epsilon_\pi(\bar\Gamma),
+\end{align}
+and all model, graph-schema, and verifier versions are compatible. Failure of any condition discards the candidate and preserves $\Pi^{stable}$. After promotion, the previous stable model is retained for rollback. An online violation, verifier incompatibility, or abrupt belief-state change above a configured threshold triggers rollback or the certified fallback controller rather than another immediate gradient update.
+
+In a federated deployment, replay qualification and candidate validation occur locally before model deltas leave a site. Raw operational trajectories remain local; only promotion-eligible parameter updates and compact trust/version metadata are communicated. Compatible shared blocks may still be aggregated across sites, but federation is a deployment mechanism rather than the security basis of the method and cannot bypass local action gating or candidate-policy validation.
+
+\begin{algorithm}[t]
+\caption{Trust-Gated Online Recovery Policy Adaptation}
+\label{alg-trust-policy}
+\KwIn{Pending transitions $\mathcal{D}^{pend}$; trusted replay $\mathcal{D}^{trust}$; stable policy $\Pi^{stable}$; validation suite $\mathcal{V}_t$; thresholds $\tau_L,\tau_H$; adaptation period $H_\pi$}
+\KwOut{Updated stable policy and replay states}
+\ForEach{new or re-evaluated transition $\tau$ in $\mathcal{D}^{pend}$}{
+  Compute $\Gamma_B,\Gamma_P,\Gamma_C,\Gamma_O$ and trust score $\Gamma(\tau)$ by Eq.~\ref{eq-transition-trust}\;
+  \If{integrity checks fail or $\Gamma(\tau)<\tau_L$}{remove $\tau$ from learning replay and retain only for audit\;}
+  \ElseIf{$\Gamma(\tau)\ge\tau_H$ and the outcome is independently verified}{promote $\tau$ to $\mathcal{D}^{trust}$\;}
+  \Else{keep $\tau$ quarantined in $\mathcal{D}^{pend}$\;}
+}
+\If{fewer than $H_\pi$ control steps have elapsed since the last adaptation}{\Return{$\Pi^{stable}$}}
+Sample a trusted minibatch $\mathcal{B}\subset\mathcal{D}^{trust}$ and compute $\bar\Gamma$\;
+Initialize $\Pi^{cand}\leftarrow\Pi^{stable}$ and optimize trust-weighted actor/critic losses\;
+Project or early-stop the update so that the KL constraint in Eq.~\ref{eq-trust-kl-budget} is satisfied\;
+Run $\Pi^{cand}$ in shadow mode over $\mathcal{V}_t$; pass every validation action through Algorithm~\ref{alg-risk-gate}\;
+\If{Eq.~\ref{eq-policy-promotion} and all version-compatibility checks hold}{
+  Archive the previous stable version and promote $\Pi^{cand}\rightarrow\Pi^{stable}$\;
+}
+\Else{discard $\Pi^{cand}$ and keep the previous $\Pi^{stable}$\;}
+\Return{$\Pi^{stable}$}\;
+\end{algorithm}
+
+\subsection{End-to-End Recovery Procedure}
+The full online loop operates on two time scales. At every control interval, authenticated evidence is ingested and Algorithm~\ref{alg-patb} updates the temporal belief graph. The deployed decentralized policy reads only the task-relevant belief state and proposes a bounded candidate set. Algorithm~\ref{alg-risk-gate} converts those proposals into an executable action using belief-gated prerequisites and authoritative invariant verification. The action is executed, and its authenticated command record, physical response, and independently verifiable outcome are written back as new evidence. The resulting transition initially remains quarantined. Only after sufficient corroboration can it influence online learning through Algorithm~\ref{alg-trust-policy}. Thus the propagation chain is explicitly controlled as
+\begin{align}
+\label{eq-end-to-end-chain}
+\text{Evidence}
+\rightarrow
+\mathcal{G}_t^{B}
+\rightarrow
+\mathbb{U}_t^{adm}
+\rightarrow
+\mathbf{a}_t^{exec}
+\rightarrow
+\text{Verified Outcome}
+\rightarrow
+\Pi^{cand}
+\rightarrow
+\Pi^{stable}.
+\end{align}
+A failure at any trust boundary reduces functionality or invokes fallback; it does not create an alternate path that bypasses the authoritative verifier.
+
+\subsection{Complexity Analysis}
+Let $B$ be the trusted minibatch size, $\bar q$ the maximum number of belief assertions referenced by one transition, $C_{grad}(B)$ the cost of one actor--critic gradient step on a batch of size $B$, $G$ the number of gradient steps per adaptation event, $M_v$ the number of validation scenarios, $H_v$ their average horizon, $C_\pi$ the cost of one policy inference, and $C_{gate}$ the cost of one call to Algorithm~\ref{alg-risk-gate}. Trust scoring of a minibatch is $O(B\bar q)$, while candidate optimization costs $O(GC_{grad}(B))$. Shadow validation costs $O(M_vH_v(C_\pi+C_{gate}))$. Hence one adaptation event has
+\begin{align}
+\label{eq-complexity-trust-policy}
+T_{\rm adapt}=O\!\left(
+B\bar q+GC_{grad}(B)+M_vH_v(C_\pi+C_{gate})
+\right).
+\end{align}
+Because adaptation occurs once every $H_\pi$ control intervals, its amortized online cost per control step is $T_{\rm adapt}/H_\pi$. Replay classification outside an adaptation event is linear in the number of newly resolved transitions. If the trusted and pending buffers hold at most $N_R$ transitions of representation size $d_\tau$ and the policy contains $P_\theta$ parameters, the dominant memory cost is
+\begin{align}
+\label{eq-space-trust-policy}
+S_{\rm adapt}=O(N_Rd_\tau+2P_\theta),
+\end{align}
+where the factor two accounts for stable and candidate model copies; one additional archived stable checkpoint can be kept on persistent storage for rollback.
