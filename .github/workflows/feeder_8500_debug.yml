@@ -1,0 +1,78 @@
+name: IEEE8500 liveness debug
+
+on:
+  push:
+    branches: [ liveness-debug-20260819 ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      OPENDSS_COMMIT: 5005c668a72d20775f4c2d060feebb2866ba1d38
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy>=1.26' 'pandas>=2.2' 'pandapower>=3.5' 'dss-python>=0.15' 'networkx>=3.2'
+
+      - name: Checkout pinned OpenDSS 8500 feeder
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/tshort/OpenDSS.git /tmp/OpenDSS
+          cd /tmp/OpenDSS
+          git checkout "$OPENDSS_COMMIT" -- Distrib/IEEETestCases/8500-Node License.txt
+          cd Distrib/IEEETestCases/8500-Node
+          for f in *.DSS; do
+            [ -e "$f" ] || continue
+            cp -f "$f" "${f%.DSS}.dss"
+          done
+
+      - name: Run one IEEE8500 seed and capture diagnostics
+        working-directory: manuscript
+        shell: bash
+        run: |
+          set +e
+          rm -rf /tmp/kgfedmarl_env
+          mkdir -p /tmp/kgfedmarl_env figures/results
+          unzip -q figures/Code/kgfedmarl_env.zip -d /tmp/kgfedmarl_env
+          python - <<'PY' > figures/results/debug_8500.txt 2>&1
+          import json, sys, time, traceback
+          from pathlib import Path
+          sys.path.insert(0, str(Path('figures/Code').resolve()))
+          from feeder_runtime_models import make_adapter, INITIAL_BLOCK_FRACTION, N_BLOCKS
+          from feeder_runtime_experiments import run_episode, K_MAX_VERIFY
+          root=Path('/tmp/kgfedmarl_env')
+          odss=Path('/tmp/OpenDSS')
+          print('N_BLOCKS', N_BLOCKS['IEEE8500'], 'K_MAX_VERIFY', K_MAX_VERIFY, flush=True)
+          t0=time.perf_counter()
+          try:
+              ad=make_adapter('IEEE8500', root, odss)
+              print('adapter_nodes', ad.n_nodes, 'loads', len(ad.load_names), 'blocks', len(ad.blocks), flush=True)
+              ad.initialize_partial(INITIAL_BLOCK_FRACTION)
+              print('initial_served_ratio', ad.served_ratio, 'initial_enabled_blocks', sorted(ad.enabled_blocks), flush=True)
+              ad=make_adapter('IEEE8500', root, odss)
+              metrics=run_episode(ad, 1, 'KG-FedMARL', 'medium', 'full')
+              print('metrics', json.dumps(metrics, sort_keys=True), flush=True)
+              print('elapsed_s', time.perf_counter()-t0, flush=True)
+          except Exception:
+              traceback.print_exc()
+              print('elapsed_s', time.perf_counter()-t0, flush=True)
+          PY
+          cat figures/results/debug_8500.txt
+          exit 0
+
+      - name: Commit debug log to branch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f manuscript/figures/results/debug_8500.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "debug: capture IEEE8500 liveness probe"
+            git push
+          fi
