@@ -44,6 +44,7 @@ jobs:
           python - <<'PY' > figures/results/debug_8500.txt 2>&1
           import json, sys, time, traceback
           from pathlib import Path
+          import numpy as np
           sys.path.insert(0, str(Path('figures/Code').resolve()))
           from feeder_runtime_models import make_adapter, INITIAL_BLOCK_FRACTION, N_BLOCKS
           from feeder_runtime_experiments import run_episode, K_MAX_VERIFY
@@ -54,8 +55,18 @@ jobs:
           try:
               ad=make_adapter('IEEE8500', root, odss)
               print('adapter_nodes', ad.n_nodes, 'loads', len(ad.load_names), 'blocks', len(ad.blocks), flush=True)
+              v=np.asarray(ad.DSS.ActiveCircuit.AllBusVmagPu,dtype=float)
+              v=v[np.isfinite(v)&(v>0.05)]
+              print('base_converged', bool(ad.DSS.ActiveCircuit.Solution.Converged),
+                    'base_vmin', float(v.min()), 'base_vmax', float(v.max()),
+                    'outside_090_110', int(np.sum((v<0.90)|(v>1.10))),
+                    'outside_088_112', int(np.sum((v<0.88)|(v>1.12))),
+                    'outside_085_115', int(np.sum((v<0.85)|(v>1.15))), flush=True)
               ad.initialize_partial(INITIAL_BLOCK_FRACTION)
-              print('initial_served_ratio', ad.served_ratio, 'initial_enabled_blocks', sorted(ad.enabled_blocks), flush=True)
+              v=np.asarray(ad.DSS.ActiveCircuit.AllBusVmagPu,dtype=float)
+              v=v[np.isfinite(v)&(v>0.05)]
+              print('initial_served_ratio', ad.served_ratio, 'initial_enabled_blocks', sorted(ad.enabled_blocks),
+                    'vmin',float(v.min()),'vmax',float(v.max()), flush=True)
               ad=make_adapter('IEEE8500', root, odss)
               metrics=run_episode(ad, 1, 'KG-FedMARL', 'medium', 'full')
               print('metrics', json.dumps(metrics, sort_keys=True), flush=True)
