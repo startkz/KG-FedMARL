@@ -1,8 +1,9 @@
 N_BLOCKS 32 K_MAX_VERIFY 8
 adapter_nodes 4876 loads 1177 blocks 32
+base_converged True base_vmin 0.06076147942131932 base_vmax 1.050348556550898 outside_090_110 10 outside_088_112 10 outside_085_115 10
 Traceback (most recent call last):
-  File "<stdin>", line 13, in <module>
+  File "<stdin>", line 21, in <module>
   File "/home/runner/work/KG-FedMARL/KG-FedMARL/manuscript/figures/Code/feeder_runtime_models.py", line 165, in initialize_partial
     raise RuntimeError("IEEE8500: failed to construct an AC-feasible partial state")
 RuntimeError: IEEE8500: failed to construct an AC-feasible partial state
-elapsed_s 3.7205161460000085
+elapsed_s 4.173694529000002
