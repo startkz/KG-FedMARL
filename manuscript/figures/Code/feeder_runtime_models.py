@@ -110,11 +110,6 @@ class OpenDSSAdapter(BaseAdapter):
         self.feeder = feeder
         self.master = Path(master).resolve()
         DSS.Text.Command = f"Compile [{self.master}]"
-        # Static mode is the OpenDSS snapshot-control mode intended for power
-        # flows that may require several regulator tap changes.  The default
-        # MaxControlIter=10 is too small for the 8500-node feeder after large
-        # block-shedding changes, so allow the regulator/capacitor controls to
-        # settle rather than freezing them at the pre-disturbance state.
         DSS.Text.Command = "Set Maxiterations=50"
         DSS.Text.Command = "Set MaxControlIter=1000"
         DSS.Text.Command = "Set ControlMode=Static"
@@ -143,23 +138,31 @@ class OpenDSSAdapter(BaseAdapter):
             super().initialize_partial(fraction)
             return
 
-        # The 8500-node feeder is sensitive to coarse, globally balanced load
-        # blocks. Build the starting state through the same authoritative AC
-        # verifier used online instead of assuming that an arbitrary 35% block
-        # subset is feasible. Smaller 32-way blocks preserve enough decision
-        # granularity for a 24-step restoration horizon while avoiding the
-        # all-or-nothing 14-block behavior observed in the first stress test.
-        self.set_enabled_blocks(set())
+        # Construct the damaged 8500-node starting state by shedding from the
+        # canonical fully energized, AC-feasible solution. Starting from zero
+        # load is not feasible for this regulator-rich feeder, whereas a
+        # verifier-preserving shedding path keeps every intermediate state in
+        # the same physical safety set that later restoration uses.
+        self.set_enabled_blocks(set(range(len(self.blocks))))
         target = max(0.0, min(1.0, float(fraction)))
-        order = np.argsort(self.block_kw)
+        order = np.argsort(-self.block_kw)
+        best = set(self.enabled_blocks)
         for b in order:
-            ok, _ = self.try_restore(int(b))
-            if ok and self.served_ratio >= target - 1e-9:
+            if self.served_ratio <= target + 1e-9:
                 break
-        if not self.enabled_blocks:
-            raise RuntimeError("IEEE8500: no AC-feasible initial restoration block")
-        # Initialization is part of scenario construction rather than online
-        # authorization, so do not charge its verifier calls to T_gate/results.
+            old = set(self.enabled_blocks)
+            candidate = set(old)
+            candidate.discard(int(b))
+            self.set_enabled_blocks(candidate)
+            ok, _ = self._solve()
+            if ok:
+                best = set(candidate)
+            else:
+                self.set_enabled_blocks(old)
+        self.set_enabled_blocks(best)
+        ok, _ = self._solve()
+        if not ok:
+            raise RuntimeError("IEEE8500: failed to construct an AC-feasible partial state")
         self.verifier_calls = 0
         self.safety_violations = 0
 
@@ -178,9 +181,6 @@ class OpenDSSAdapter(BaseAdapter):
         elapsed = (time.perf_counter() - t0) * 1000.0
         if not converged:
             return False, elapsed
-        # DSS-Python exposes per-unit bus magnitudes through AllBusVmagPu.
-        # De-energized entries are filtered because partial restoration can
-        # intentionally leave buses without energized load.
         v = np.asarray(self.DSS.ActiveCircuit.AllBusVmagPu, dtype=float)
         v = v[np.isfinite(v) & (v > 0.05)]
         ok = bool(len(v) and v.min() >= V_MIN - 1e-9 and v.max() <= V_MAX + 1e-9)
