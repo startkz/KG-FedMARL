@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   feeder-results:
@@ -40,9 +40,6 @@ jobs:
           cp -f IEEELineCodes.DSS IEEELinecodes.DSS
           if [ -f BusCoords.dat ]; then cp -f BusCoords.dat Buscoords.dat; fi
           cd ../8500-Node
-          # The reference master files were authored on a case-insensitive
-          # platform.  Preserve the source files and add lowercase-extension
-          # aliases required by the redirects when running on Linux.
           for f in *.DSS; do
             [ -e "$f" ] || continue
             cp -f "$f" "${f%.DSS}.dss"
@@ -104,3 +101,14 @@ jobs:
             manuscript/figures/results
             manuscript/figures/final_feeder_results
           retention-days: 14
+
+      - name: Persist successful feeder results on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && success()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f manuscript/figures/results manuscript/figures/final_feeder_results
+          if ! git diff --cached --quiet; then
+            git commit -m "results: update five-seed feeder experiment outputs"
+            git push
+          fi
