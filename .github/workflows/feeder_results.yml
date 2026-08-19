@@ -9,6 +9,8 @@ on:
       - 'manuscript/figures/Code/feeder_experiment_io.py'
       - 'manuscript/figures/Code/plot_feeder_results.py'
       - 'manuscript/figures/Code/kgfedmarl_env.zip'
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
