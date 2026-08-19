@@ -142,9 +142,10 @@ class OpenDSSAdapter(BaseAdapter):
         elapsed = (time.perf_counter() - t0) * 1000.0
         if not bool(self.DSS.ActiveCircuit.Solution.Converged):
             return False, elapsed
-        # DSS-Python exposes COM-compatible AllBusMagPu. Filter de-energized
-        # entries because partial restoration intentionally leaves some buses dark.
-        v = np.asarray(self.DSS.ActiveCircuit.AllBusMagPu, dtype=float)
+        # DSS-Python exposes per-unit bus magnitudes through AllBusVmagPu.
+        # De-energized entries are filtered because partial restoration can
+        # intentionally leave buses without energized load.
+        v = np.asarray(self.DSS.ActiveCircuit.AllBusVmagPu, dtype=float)
         v = v[np.isfinite(v) & (v > 0.05)]
         ok = bool(len(v) and v.min() >= V_MIN - 1e-9 and v.max() <= V_MAX + 1e-9)
         return ok, elapsed
