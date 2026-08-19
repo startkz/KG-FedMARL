@@ -1,0 +1,9 @@
+run_id=32242362649
+source_commit=344d9b44922f16b2cb8d2801534f5b8e818dc50f
+install_outcome=success
+compile_outcome=failure
+pdf_created=no
+
+COMPILE ERRORS:
+! LaTeX Error: File `CJK.sty' not found.
+./main.tex:50:  ==> Fatal error occurred, no output PDF file produced!
