@@ -12,9 +12,6 @@ LOW 3649 d5472341-1_int.3 0.06251642787859925
 LOW 3651 f739842.3 0.06251642787859926
 LOW 3688 d5865224-1_int.3 0.0625223990040399
 LOW 3814 d5746546-1_int.2 0.06307391553446168
-Traceback (most recent call last):
-  File "<stdin>", line 25, in <module>
-  File "/home/runner/work/KG-FedMARL/KG-FedMARL/manuscript/figures/Code/feeder_runtime_models.py", line 165, in initialize_partial
-    raise RuntimeError("IEEE8500: failed to construct an AC-feasible partial state")
-RuntimeError: IEEE8500: failed to construct an AC-feasible partial state
-elapsed_s 2.878748897999998
+initial_served_ratio 0.3432406617550822 initial_enabled_blocks [0, 2, 3, 9, 10, 11, 12, 13, 15, 30, 31] vmin 0.06394225262450191 vmax 1.062364238951161
+metrics {"AURC": 0.7129354683904547, "D_B": 0.1169779474526132, "D_pi": 0.03863123352381883, "P_FA": 0.08695652173913043, "T_corr": 1.0, "T_crit": 18.0, "fallback_rate": 0.0, "gate_latency_ms": 43.33756199999952, "n_nodes": 4876, "recovered_final": 0.9999999999999993, "safety_violations": 0, "verifier_calls": 21}
+elapsed_s 3.375288341000001
