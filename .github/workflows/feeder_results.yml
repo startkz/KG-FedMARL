@@ -36,6 +36,9 @@ jobs:
           git clone --filter=blob:none --no-checkout https://github.com/tshort/OpenDSS.git /tmp/OpenDSS
           cd /tmp/OpenDSS
           git checkout "$OPENDSS_COMMIT" -- Distrib/IEEETestCases/123Bus Distrib/IEEETestCases/8500-Node License.txt
+          cd Distrib/IEEETestCases/123Bus
+          cp -f IEEELineCodes.DSS IEEELinecodes.DSS
+          if [ -f BusCoords.dat ]; then cp -f BusCoords.dat Buscoords.dat; fi
           echo "$OPENDSS_COMMIT" > /tmp/opendss_commit.txt
 
       - name: Run five-seed feeder experiments
