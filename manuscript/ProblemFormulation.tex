@@ -1,0 +1,107 @@
+\section{PROBLEM FORMULATION}
+This section formulates resilient restoration as a knowledge-conditioned constrained Markov game.
+
+\subsection{Constrained Markov Game}
+Let $\mathcal{I}=\{1,\ldots,N\}$ denote restoration agents, such as substation controllers, feeder agents, microgrid controllers, distributed-generator agents, and communication-repair agents. The restoration process is modeled as
+\begin{align}
+\label{eq-game}
+\mathcal{M}=\langle \mathcal{S},\{\mathcal{A}_i\}_{i=1}^{N},P,R,\gamma,\mathcal{K}\rangle,
+\end{align}
+where $\mathcal{S}$ is the latent cross-layer state space, $\mathcal{A}_i$ is the local action set of agent $i$, $P$ is the state transition kernel, $R$ is the global restoration reward, $\gamma\in(0,1)$ is the discount factor, and $\mathcal{K}$ denotes the dynamic KG that supplies observations, constraints, and historical evidence.
+
+At time $t$, agent $i$ observes $\tilde{s}_t^i=[o_t^i;s_t]$ and samples an action from its actor. Let $g(i)$ denote the action role of agent $i$:
+\begin{align}
+\label{eq-actor}
+a_t^i\sim \pi_{\theta_{g(i)},\nu_i}(a^i|\tilde{s}_t^i).
+\end{align}
+The joint candidate action is $\mathbf{a}_t=(a_t^1,\ldots,a_t^N)$. Before execution, the candidate is projected onto the feasible set
+\begin{align}
+\label{eq-safe-set}
+\mathcal{A}^{safe}(s_t)=
+\{\mathbf{a}\mid g_m(s_t,\mathbf{a})\le 0,\ h_n(s_t,\mathbf{a})=0\},
+\end{align}
+where $m=1,\ldots,M$, $n=1,\ldots,H$. The function $g_m$ represents inequality constraints such as voltage, current, capacity, authorization, communication availability, and switching limits, while $h_n$ represents equality or structural constraints such as radiality and power balance. The executed action is
+\begin{align}
+\label{eq-projection}
+\mathbf{a}^{exec}_t=\Pi_{\mathcal{A}^{safe}(s_t)}(\mathbf{a}_t).
+\end{align}
+If no feasible nontrivial action exists, the filter returns a safe fallback such as maintaining isolation, local control, or limited load shedding.
+
+\subsection{Three-Level Feasibility Structure}
+The feasible set in Eq.~\ref{eq-safe-set} is computed as a three-level candidate reduction rather than by running an exact solver on every joint action. The first level is semantic admissibility:
+\begin{align}
+\label{eq-semantic-admissible}
+\mathcal{A}^{kg}(s_t)=\{\mathbf{a}\mid \textsc{KGOK}(\mathcal{K}_t,\mathbf{a})=1\}.
+\end{align}
+This stage checks whether the command path exists, whether the device is controllable, whether the protection rule allows the operation, whether the measurement chain is trustworthy enough for the action, and whether similar historical outcomes raise a warning. It removes actions that are symbolically impossible or operationally forbidden.
+
+The second level is a fast surrogate feasibility screen:
+\begin{align}
+\label{eq-surrogate-screen}
+\mathcal{A}^{sur}(s_t)=
+\{\mathbf{a}\mid \widehat{v}_{\chi}(s_t,\mathbf{a})\le \epsilon_{\rm sur}\},
+\end{align}
+where $\widehat{v}_{\chi}$ estimates voltage, current, radiality, load-shedding, and communication-risk violations from historical simulations or online rollouts. This model is not trusted as a final safety proof. It is used to rank and shrink the candidate set before an expensive physical check.
+
+The third level is exact physical feasibility on the remaining candidates:
+\begin{align}
+\label{eq-physical-feasible}
+\mathcal{A}^{phy}(s_t)=\{\mathbf{a}\mid \textsc{PhyOK}(s_t,\mathbf{a})=1\}.
+\end{align}
+Here $\textsc{PhyOK}$ may call an AC power-flow solver, a conservative linearized check, or a mixed-integer restoration model depending on the action type and time budget. The safe set is
+\begin{align}
+\label{eq-safe-intersection}
+\mathcal{A}^{safe}(s_t)=\mathcal{A}^{kg}(s_t)\cap\mathcal{A}^{sur}(s_t)\cap\mathcal{A}^{phy}(s_t).
+\end{align}
+This decomposition makes action rejection interpretable: a candidate may fail because of a missing cyber prerequisite, a rule conflict, a low-trust observation path, or a physical operating violation.
+
+\subsection{Restoration Objective}
+The reward should reflect the operational meaning of resilience: recover critical service quickly while avoiding unsafe actions. We define
+\begin{align}
+\label{eq-reward}
+R_t=w_1\eta_t-w_2\Delta T_t-w_3N_{\rm viol}(t)-w_4C_{\rm cyber}(t)-w_5C_{\rm shed}(t),
+\end{align}
+where $\eta_t$ is the recovered load ratio, $\Delta T_t$ is the restoration time or step penalty, $N_{\rm viol}(t)$ is the number or severity of safety violations after filtering and execution, $C_{\rm cyber}(t)$ is the cost of unavailable or rerouted cyber resources, and $C_{\rm shed}(t)$ penalizes curtailed critical load. The goal is
+\begin{align}
+\label{eq-objective}
+\max_{\{\pi_{\theta_g,\nu_i}\}}\ \mathbb{E}\left[\sum_{t=0}^{T}\gamma^t R_t\right],
+\end{align}
+subject to the rule, physics, communication, and operational constraints in Eq.~\ref{eq-safe-set}.
+
+\subsection{Knowledge-Conditioned Feasibility}
+The feasible action set is computed from both explicit physical models and KG reasoning. Let $\mathcal{Q}(\mathcal{K}_t,\mathbf{a})$ be a semantic query that retrieves the devices, cyber paths, protection rules, and historical warnings related to a candidate action. The candidate is accepted only if
+\begin{align}
+\label{eq-kg-feasible}
+\text{Valid}(\mathbf{a},\mathcal{K}_t)=\text{true}
+\end{align}
+and the physics check passes. For example, a switch-close action must have an available command path, proper authorization, no protection-rule conflict, preserved radiality, acceptable voltage, and no overloaded branch. This design turns KG reasoning into a formal part of the control pipeline, rather than a post-hoc explanation module.
+
+The query result also defines an explanation path for each accepted action. For action $a$, KG-FedMARL stores the path set
+\begin{align}
+\label{eq-explanation-path}
+\mathcal{P}_a=\{e_0 \xrightarrow{r_1} e_1 \xrightarrow{r_2}\cdots \xrightarrow{r_L} e_L\},
+\end{align}
+where the endpoints include the action entity, affected devices, required cyber resources, active constraints, and historical outcome entities. The path set is not only a narrative object. It is the evidence used by the safety filter and later written back with the execution outcome, so that the decision can be audited at the same granularity at which it was made.
+
+\subsection{Federated Learning Constraint}
+Operational traces in different substations or edge controllers may be sensitive and bandwidth-constrained. KG-FedMARL therefore trains federatively, but the federated client and the restoration agent are different objects. A client is a data-owning cyber-physical site, such as a substation, feeder edge server, microgrid controller, or communication-repair center. A client may host one restoration agent or several role-specific agents. An agent is a decision role with its own observation and action space, such as switching, load transfer, microgrid support, or communication repair.
+
+Because these roles are heterogeneous, KG-FedMARL does not average all actor parameters directly. Client $i$ holds
+\begin{align}
+\label{eq-client-params}
+\Theta_i=\{\psi_i,\phi_i,\{\theta_{i,g}\}_{g\in\mathcal{G}_i},\nu_i\},
+\end{align}
+where $\psi_i$ is the shared graph encoder, $\phi_i$ is the training-time critic or critic representation, $\theta_{i,g}$ is a role-specific action head for role $g$, and $\nu_i$ is a local personalized adapter. The server or coordinating edge node aggregates only compatible blocks:
+\begin{align}
+\label{eq-fedavg}
+\psi^{(r+1)}
+&=\sum_{i\in\mathcal{P}_r}\omega_i^{enc,(r)}\psi_i^{(r)}, \nonumber\\
+\phi^{(r+1)}
+&=\sum_{i\in\mathcal{P}_r}\omega_i^{crit,(r)}\phi_i^{(r)},
+\end{align}
+and, for each compatible role group $g$,
+\begin{align}
+\label{eq-role-aggregation}
+\theta_g^{(r+1)}=\sum_{i\in\mathcal{P}_{r,g}}\omega_{i,g}^{(r)}\theta_{i,g}^{(r)}.
+\end{align}
+The local adapter $\nu_i$ is not aggregated. If two clients implement the same role with incompatible action heads, their knowledge is transferred by distillation on public or synthetic task subgraphs rather than by parameter averaging. Thus the formulation reduces centralized raw-data transfer risk while avoiding an invalid FedAvg assumption over heterogeneous action spaces.
