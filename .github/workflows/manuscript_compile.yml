@@ -1,0 +1,134 @@
+name: Manuscript compile and layout audit
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/manuscript_compile.yml'
+      - 'manuscript/*.tex'
+      - 'manuscript/ref.bib'
+      - 'manuscript/figures/kgfedmarl_*.eps'
+      - 'manuscript/figures/final_feeder_results/*.eps'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  compile-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install LaTeX and PDF audit tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            latexmk texlive-latex-base texlive-latex-recommended texlive-latex-extra \
+            texlive-fonts-recommended texlive-font-utils texlive-science texlive-publishers \
+            texlive-lang-chinese ghostscript poppler-utils imagemagick
+
+      - name: Compile manuscript
+        working-directory: manuscript
+        run: |
+          latexmk -pdf -shell-escape -interaction=nonstopmode -halt-on-error -file-line-error main.tex
+
+      - name: Build layout audit
+        working-directory: manuscript
+        shell: bash
+        run: |
+          set -euo pipefail
+          pdfinfo main.pdf > pdfinfo.txt
+          pdftotext -layout main.pdf main_layout.txt
+          mkdir -p rendered
+          pdftoppm -png -r 144 main.pdf rendered/page >/dev/null 2>&1
+          montage rendered/page-*.png -thumbnail 240x -tile 4x -geometry +4+4 contact_sheet.png
+          python - <<'PY'
+          from pathlib import Path
+          import re, subprocess, os
+          text=Path('main_layout.txt').read_text(errors='replace')
+          pages=text.split('\f')
+          if pages and not pages[-1].strip(): pages=pages[:-1]
+          markers={
+            'section_vii':['VII. EXPERIMENTAL EVALUATION','EXPERIMENTAL EVALUATION'],
+            'controlled_belief':['Controlled belief distortion versus'],
+            'controlled_correction':['Post-attack correction time versus'],
+            'controlled_false_auth':['Controlled false-authorization probability'],
+            'controlled_policy':['Controlled deployed-policy drift'],
+            'feeder_baseline':['End-to-end restoration AURC'],
+            'feeder_intensity':['Feeder-level belief distortion on IEEE 33-bus'],
+            'feeder_ablation':['Security-boundary ablation on IEEE 33-bus'],
+            'feeder_scale':['Mean authorization-loop latency versus feeder size'],
+            'conclusion':['VIII. CONCLUSION','CONCLUSION'],
+            'references':['REFERENCES'],
+          }
+          found={}
+          for key, needles in markers.items():
+              hits=[]
+              for i,p in enumerate(pages,1):
+                  if any(n.lower() in p.lower() for n in needles): hits.append(i)
+              found[key]=hits
+          exp_start=(found['section_vii'] or [None])[0]
+          concl=(found['conclusion'] or [None])[0]
+          exp_span=None
+          if exp_start and concl: exp_span=concl-exp_start
+          log=Path('main.log').read_text(errors='replace')
+          over=re.findall(r'Overfull \\hbox.*',log)
+          under=re.findall(r'Underfull \\hbox.*',log)
+          undef_ref=re.findall(r"LaTeX Warning: Reference `[^']+' on page .* undefined",log)
+          undef_cite=re.findall(r"LaTeX Warning: Citation `[^']+' on page .* undefined",log)
+          rerun=[x for x in log.splitlines() if 'Rerun to get cross-references right' in x or 'There were undefined references' in x]
+          info=Path('pdfinfo.txt').read_text(errors='replace')
+          m=re.search(r'^Pages:\s+(\d+)',info,re.M)
+          page_count=int(m.group(1)) if m else len(pages)
+          lines=[
+              f'run_id={os.environ.get("GITHUB_RUN_ID","")}',
+              f'source_commit={os.environ.get("GITHUB_SHA","")}',
+              f'page_count={page_count}',
+              f'experimental_start_page={exp_start}',
+              f'conclusion_start_page={concl}',
+              f'experimental_page_span_before_conclusion={exp_span}',
+              f'overfull_hbox_count={len(over)}',
+              f'underfull_hbox_count={len(under)}',
+              f'undefined_reference_count={len(undef_ref)}',
+              f'undefined_citation_count={len(undef_cite)}',
+              f'rerun_warning_count={len(rerun)}',
+          ]
+          for k,v in found.items(): lines.append(f'{k}_pages={",".join(map(str,v)) if v else "NOT_FOUND"}')
+          lines.append('')
+          lines.append('OVERFULL:')
+          lines.extend(over[:30] or ['none'])
+          lines.append('')
+          lines.append('UNDEFINED REFERENCES:')
+          lines.extend(undef_ref[:30] or ['none'])
+          lines.append('')
+          lines.append('UNDEFINED CITATIONS:')
+          lines.extend(undef_cite[:30] or ['none'])
+          Path('compile_audit.txt').write_text('\n'.join(lines)+'\n')
+          print('\n'.join(lines))
+          PY
+
+      - name: Upload manuscript and visual audit
+        uses: actions/upload-artifact@v4
+        with:
+          name: manuscript-layout-audit
+          path: |
+            manuscript/main.pdf
+            manuscript/main.log
+            manuscript/compile_audit.txt
+            manuscript/main_layout.txt
+            manuscript/contact_sheet.png
+            manuscript/rendered
+          retention-days: 14
+
+      - name: Persist audit pointer on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && success()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -f manuscript/compile_audit.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "build: record manuscript layout audit"
+            git push
+          fi
