@@ -72,7 +72,7 @@ def run_episode(adapter, seed: int, method: str, attack_level: str, ablation: st
     adapter.initialize_partial(INITIAL_BLOCK_FRACTION)
     pending = [i for i in range(n) if i not in adapter.enabled_blocks]
     served = [adapter.served_ratio]
-    false_auth = attempts = fallbacks = 0
+    false_auth = attempts = fallbacks = decision_opportunities = 0
     latencies = []
     db_trace = []
     logits_a = np.zeros(n, dtype=float)
@@ -87,6 +87,9 @@ def run_episode(adapter, seed: int, method: str, attack_level: str, ablation: st
         latestA = latest_estimate(evA, n)
         latest0 = latest_estimate(ev0, n)
 
+        had_pending = bool(pending)
+        if had_pending:
+            decision_opportunities += 1
         tg = time.perf_counter()
         action = choose_block(method, ablation, pending, adapter.block_kw, pA, latestA,
                               static_avail, schedule[step], logits_a)
@@ -96,12 +99,16 @@ def run_episode(adapter, seed: int, method: str, attack_level: str, ablation: st
 
         restored = false = False
         if action is None:
-            fallbacks += 1
+            # Once all restoration blocks have been completed there is no
+            # decision opportunity and therefore no fallback event.
+            if had_pending:
+                fallbacks += 1
         else:
             attempts += 1
             if not bool(schedule[step, action]):
-                # False semantic authorization is stopped by the protected
-                # operational interface; no topology change is committed.
+                # Ground truth is used here only to score semantic false
+                # authorization in the experiment harness; the invalid action is
+                # not committed to the physical simulator.
                 false_auth += 1; fallbacks += 1; false = True
             else:
                 ok, physical_ms = adapter.try_restore(action)
@@ -112,7 +119,8 @@ def run_episode(adapter, seed: int, method: str, attack_level: str, ablation: st
                         pending.remove(action)
                 else:
                     fallbacks += 1
-        latencies.append(latency)
+        if had_pending:
+            latencies.append(latency)
 
         trust = float(pA[action]) if action is not None else 0.5
         if false:
@@ -130,7 +138,6 @@ def run_episode(adapter, seed: int, method: str, attack_level: str, ablation: st
         served.append(adapter.served_ratio)
 
     served = np.asarray(served, dtype=float)
-    # numpy.trapezoid is used because np.trapz is deprecated in NumPy 2.x.
     aurc = float(np.trapezoid(served, dx=1.0) / max(1, len(served) - 1))
     hit = np.where(served >= 0.90)[0]
     tcrit = float(hit[0]) if len(hit) else float(STEPS + 1)
@@ -148,7 +155,7 @@ def run_episode(adapter, seed: int, method: str, attack_level: str, ablation: st
         "P_FA": float(false_auth / max(1, attempts)),
         "T_corr": tcorr,
         "D_pi": tv_cat(softmax(logits_a), softmax(logits_0)),
-        "fallback_rate": float(fallbacks / STEPS),
+        "fallback_rate": float(fallbacks / max(1, decision_opportunities)),
         "gate_latency_ms": float(np.mean(latencies)) if latencies else 0.0,
         "recovered_final": float(served[-1]),
         "verifier_calls": int(adapter.verifier_calls),
@@ -189,17 +196,20 @@ def main():
     p.add_argument("--work-dir", default="/tmp/kgfedmarl_env")
     p.add_argument("--source-commit", default=os.environ.get("GITHUB_SHA", ""))
     args = p.parse_args()
-    env_root = Path(args.work_dir)
+
+    # OpenDSS changes its internal data directory while compiling redirected
+    # files. Resolve all host-side paths before the first DSS compile so result
+    # provenance never depends on that simulator-side working directory.
+    env_zip = Path(args.env_zip).resolve()
+    env_root = Path(args.work_dir).resolve()
+    out = Path(args.output).resolve()
+    odss = Path(args.opendss_root).resolve()
     if env_root.exists(): shutil.rmtree(env_root)
     env_root.mkdir(parents=True)
-    with zipfile.ZipFile(args.env_zip) as zf: zf.extractall(env_root)
-    out = Path(args.output)
+    with zipfile.ZipFile(env_zip) as zf: zf.extractall(env_root)
     if out.exists(): out.unlink()
     seeds = range(1, args.seeds + 1)
-    odss = Path(args.opendss_root)
 
-    # End-to-end baselines use IEEE33 so every method is evaluated on an
-    # identical canonical power-flow model and attack realization.
     for method in METHODS:
         for seed in seeds:
             print("baseline", method, seed, flush=True)
@@ -208,7 +218,6 @@ def main():
                                      args.source_commit, "common priority candidate policy + exact AC verifier"),
                        require_final_metrics=True)
 
-    # Attack intensity for full KG-FedMARL. Reuse medium rows above.
     for level in ("none", "low", "high"):
         for seed in seeds:
             print("intensity", level, seed, flush=True)
@@ -216,7 +225,6 @@ def main():
             append_row(out, make_row(seed, "IEEE33", "KG-FedMARL", "full", level, m,
                                      args.source_commit), require_final_metrics=True)
 
-    # One trust boundary disabled at a time. Reuse full-medium rows above.
     for ablation in ABLATIONS[1:]:
         for seed in seeds:
             print("ablation", ablation, seed, flush=True)
@@ -224,8 +232,6 @@ def main():
             append_row(out, make_row(seed, "IEEE33", "KG-FedMARL", ablation, "medium", m,
                                      args.source_commit), require_final_metrics=True)
 
-    # Scalability extends the same full method to the uploaded radial-69 case
-    # and canonical 123/8500 OpenDSS benchmarks. IEEE33 rows are reused.
     for feeder in ("Radial69-env", "IEEE123", "IEEE8500"):
         note = ("supplied programmatic 69-bus radial benchmark" if feeder == "Radial69-env"
                 else "canonical OpenDSS test feeder at pinned upstream commit")
