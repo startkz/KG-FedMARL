@@ -56,17 +56,21 @@ jobs:
               ad=make_adapter('IEEE8500', root, odss)
               print('adapter_nodes', ad.n_nodes, 'loads', len(ad.load_names), 'blocks', len(ad.blocks), flush=True)
               v=np.asarray(ad.DSS.ActiveCircuit.AllBusVmagPu,dtype=float)
-              v=v[np.isfinite(v)&(v>0.05)]
+              names=list(ad.DSS.ActiveCircuit.AllNodeNames)
+              finite=np.isfinite(v)&(v>0.0)
+              vv=v[finite]
               print('base_converged', bool(ad.DSS.ActiveCircuit.Solution.Converged),
-                    'base_vmin', float(v.min()), 'base_vmax', float(v.max()),
-                    'outside_090_110', int(np.sum((v<0.90)|(v>1.10))),
-                    'outside_088_112', int(np.sum((v<0.88)|(v>1.12))),
-                    'outside_085_115', int(np.sum((v<0.85)|(v>1.15))), flush=True)
+                    'base_vmin', float(vv.min()), 'base_vmax', float(vv.max()),
+                    'outside_090_110', int(np.sum((vv<0.90)|(vv>1.10))), flush=True)
+              bad=np.where(finite & (v<0.90))[0]
+              print('low_node_count',len(bad), flush=True)
+              for i in bad[:40]:
+                  print('LOW',i,names[i] if i<len(names) else '?',float(v[i]),flush=True)
               ad.initialize_partial(INITIAL_BLOCK_FRACTION)
               v=np.asarray(ad.DSS.ActiveCircuit.AllBusVmagPu,dtype=float)
-              v=v[np.isfinite(v)&(v>0.05)]
+              vv=v[np.isfinite(v)&(v>0.0)]
               print('initial_served_ratio', ad.served_ratio, 'initial_enabled_blocks', sorted(ad.enabled_blocks),
-                    'vmin',float(v.min()),'vmax',float(v.max()), flush=True)
+                    'vmin',float(vv.min()),'vmax',float(vv.max()), flush=True)
               ad=make_adapter('IEEE8500', root, odss)
               metrics=run_episode(ad, 1, 'KG-FedMARL', 'medium', 'full')
               print('metrics', json.dumps(metrics, sort_keys=True), flush=True)
