@@ -1,11 +1,6 @@
 name: Feeder environment probe
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - '.github/workflows/feeder_env_probe.yml'
-      - 'manuscript/figures/Code/kgfedmarl_env.zip'
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -18,132 +13,49 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Unpack environment and nested feeder archives
+      - name: Inspect 8500 and IEEE123 assets
         shell: bash
         run: |
           set -euo pipefail
-          ZIP=manuscript/figures/Code/kgfedmarl_env.zip
-          rm -rf /tmp/kgfedmarl_env /tmp/ieee8500_outer /tmp/ieee8500_csv
-          mkdir -p /tmp/kgfedmarl_env /tmp/ieee8500_outer /tmp/ieee8500_csv
-          unzip -q "$ZIP" -d /tmp/kgfedmarl_env
-          echo '=== ZIP LIST ==='
-          unzip -l "$ZIP" | sed -n '1,240p'
-          echo '=== FILE TREE ==='
-          find /tmp/kgfedmarl_env -maxdepth 6 -type f -printf '%P\t%k KB\n' | sort | sed -n '1,420p'
-          echo '=== INNER 8500 ARCHIVE ==='
-          unzip -l /tmp/kgfedmarl_env/configs/8500node.zip | sed -n '1,260p'
-          unzip -q /tmp/kgfedmarl_env/configs/8500node.zip -d /tmp/ieee8500_outer
-          echo '=== 8500 CSV PACKAGE ==='
-          unzip -l '/tmp/ieee8500_outer/IEEE-8500Node-CSV-R2b.zip' | sed -n '1,420p'
-          unzip -q '/tmp/ieee8500_outer/IEEE-8500Node-CSV-R2b.zip' -d /tmp/ieee8500_csv
-          echo '=== 8500 EXTRACTED TREE ==='
-          find /tmp/ieee8500_csv -maxdepth 4 -type f -printf '%P\t%s bytes\n' | sort | sed -n '1,500p'
-          echo '=== 8500 CSV/DSS/GLM HEADERS ==='
-          while IFS= read -r f; do
-            echo "===== ${f#/tmp/ieee8500_csv/} ====="
-            sed -n '1,35p' "$f" || true
-          done < <(find /tmp/ieee8500_csv -type f \( -iname '*.csv' -o -iname '*.dss' -o -iname '*.glm' -o -iname '*.txt' \) | sort | head -80)
-          echo '=== IEEE123 MASTER ==='
-          sed -n '1,240p' /tmp/kgfedmarl_env/configs/IEEE123Master.dss
-          echo '=== IEEE123 REDIRECTS ==='
-          grep -Ein 'redirect|compile|new +linecode|new +line|new +load|new +transformer' /tmp/kgfedmarl_env/configs/IEEE123Master.dss | sed -n '1,260p' || true
-
-      - name: Print executable source
-        shell: bash
-        run: |
-          set -euo pipefail
-          for rel in \
-            README.md requirements.txt Dockerfile docker-compose.yml scripts/run_all.sh \
-            feeders/pandapower_33_69.py feeders/opendss_123.py feeders/gridlabd_8500.py \
-            cosim/helics_broker.py cosim/power_federate.py cosim/comm_federate.py cosim/marl_federate.py \
-            kg_plane/belief_graph.py kg_plane/recovery_gate.py kg_plane/__init__.py; do
-            f="/tmp/kgfedmarl_env/$rel"
-            if [ -f "$f" ]; then
-              echo "===== FILE: $rel ====="
-              sed -n '1,360p' "$f"
-            else
-              echo "===== MISSING: $rel ====="
-            fi
-          done
-
-      - name: Install lightweight feeder dependencies
-        shell: bash
-        run: |
-          set -euo pipefail
-          python -m pip install --upgrade pip
-          python -m pip install 'numpy>=1.26' 'pandas>=2.2' 'pandapower>=3.5' 'networkx>=3.2' 'rdflib>=7.0' 'pydantic>=2.0' 'dss-python>=0.15'
-
-      - name: Run feeder and trust-plane smoke tests
-        shell: bash
-        run: |
-          set -euo pipefail
-          cd /tmp/kgfedmarl_env
-          mkdir -p /tmp/feeder_smoke
-          echo '=== IEEE33 ==='
-          python feeders/pandapower_33_69.py --case ieee33 --out /tmp/feeder_smoke/ieee33.csv
-          echo '=== IEEE69 PROGRAMMATIC ==='
-          python feeders/pandapower_33_69.py --case ieee69 --out /tmp/feeder_smoke/ieee69.csv
-          echo '=== 123 PROGRAMMATIC ==='
-          python feeders/opendss_123.py --out /tmp/feeder_smoke/ieee123.csv
-          echo '=== DSS-PYTHON VERSION / MASTER COMPILE ATTEMPT ==='
+          rm -rf /tmp/env /tmp/o /tmp/sol /tmp/csv
+          mkdir -p /tmp/env /tmp/o /tmp/sol /tmp/csv
+          unzip -q manuscript/figures/Code/kgfedmarl_env.zip -d /tmp/env
+          unzip -q /tmp/env/configs/8500node.zip -d /tmp/o
+          echo '=== SOLUTIONS ZIP ==='
+          unzip -l /tmp/o/Solutions.zip | sed -n '1,700p'
+          unzip -q /tmp/o/Solutions.zip -d /tmp/sol
+          echo '=== SOLUTIONS FILE TREE ==='
+          find /tmp/sol -maxdepth 7 -type f -printf '%P\t%s bytes\n' | sort | sed -n '1,900p'
+          echo '=== EXECUTABLE MODEL CANDIDATES ==='
+          find /tmp/sol -type f \( -iname '*.dss' -o -iname '*.glm' -o -iname '*.raw' -o -iname '*.m' -o -iname '*.py' -o -iname '*.xml' \) -print | sort | sed -n '1,500p'
+          unzip -q '/tmp/o/IEEE-8500Node-CSV-R2b.zip' -d /tmp/csv
+          echo '=== LINE CODES ==='
+          sed -n '1,340p' /tmp/csv/LineCodes2.dat
+          echo '=== SOURCE ==='
+          cat /tmp/csv/Source.dat
+          echo '=== PRIMARY LINE COUNTS / STATUS ==='
           python - <<'PY'
-          from dss import DSS
-          import pathlib
-          p=pathlib.Path('/tmp/kgfedmarl_env/configs/IEEE123Master.dss')
-          print('DSS object', DSS)
-          try:
-              DSS.Text.Command = f'Compile [{p}]'
-              print('compile_result', DSS.Text.Result)
-              print('num_buses', DSS.ActiveCircuit.NumBuses)
-              print('all_bus_names_head', list(DSS.ActiveCircuit.AllBusNames)[:10])
-          except Exception as e:
-              print('DSS_COMPILE_ERROR', type(e).__name__, str(e))
+          import csv, pathlib, re
+          root=pathlib.Path('/tmp/csv')
+          def data_rows(path):
+              lines=[]
+              for s in path.read_text(errors='ignore').splitlines():
+                  if s.strip() and not s.lstrip().startswith('#'): lines.append(s)
+              return list(csv.DictReader(lines, skipinitialspace=True))
+          for name in ['Lines.csv','Loads.CSV','LoadXfmrs.csv','Triplex_Lines.csv','Regulators.csv','Transformers.csv','Buscoords.csv']:
+              rows=data_rows(root/name)
+              print(name, len(rows), list(rows[0].keys()) if rows else [])
+          rows=data_rows(root/'Lines.csv')
+          statuses={}
+          for r in rows:
+              v=(r.get('Status') or r.get(' Status   ') or '').strip()
+              statuses[v]=statuses.get(v,0)+1
+          print('line_statuses', statuses)
+          buses=set()
+          for r in rows:
+              buses.add((r.get('Bus1') or '').strip()); buses.add((r.get('Bus2') or '').strip())
+          print('primary_line_unique_buses', len(buses))
           PY
-          echo '=== BELIEF GRAPH ==='
-          python kg_plane/belief_graph.py
-          echo '=== RECOVERY GATE ==='
-          python kg_plane/recovery_gate.py
-          echo '=== OUTPUT SHAPES ==='
-          python - <<'PY'
-          import pandas as pd
-          for p in ['/tmp/feeder_smoke/ieee33.csv','/tmp/feeder_smoke/ieee69.csv','/tmp/feeder_smoke/ieee123.csv']:
-              df=pd.read_csv(p)
-              print(p, df.shape, list(df.columns), df.head(2).to_dict(orient='records'))
-          PY
-
-      - name: Static import audit
-        shell: bash
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-          cd /tmp/kgfedmarl_env
-          python -m py_compile feeders/*.py cosim/*.py kg_plane/*.py
-          python - <<'PY'
-          import pandapower.networks as nw
-          print('pandapower_network_names', [n for n in dir(nw) if '69' in n.lower() or '123' in n.lower() or '33' in n.lower()])
-          from feeders import pandapower_33_69 as p3369
-          from feeders import opendss_123 as p123
-          print('build_33', len(p3369.build_33().bus))
-          print('build_69', len(p3369.build_69().bus))
-          print('build_123', len(p123.build_123().bus))
-          PY
-
-      - name: Build audit artifact
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          OUT=/tmp/feeder_env_probe
-          mkdir -p "$OUT"
-          find /tmp/kgfedmarl_env -maxdepth 6 -type f -printf '%P\t%s bytes\n' | sort > "$OUT/file_manifest.txt"
-          unzip -l /tmp/kgfedmarl_env/configs/8500node.zip > "$OUT/8500_archive.txt" || true
-          find /tmp/ieee8500_csv -maxdepth 5 -type f -printf '%P\t%s bytes\n' | sort > "$OUT/8500_extracted_manifest.txt" || true
-          cp -f /tmp/feeder_smoke/*.csv "$OUT/" 2>/dev/null || true
-
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: feeder-env-runtime-audit
-          path: /tmp/feeder_env_probe
-          retention-days: 7
+          echo '=== IEEE123 DEPENDENCY INVENTORY ==='
+          grep -Ein '^\s*(redirect|compile)' /tmp/env/configs/IEEE123Master.dss || true
+          find /tmp/env/configs -maxdepth 2 -type f -printf '%f\n' | sort
