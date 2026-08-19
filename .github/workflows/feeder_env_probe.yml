@@ -1,0 +1,71 @@
+name: Feeder environment probe
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/feeder_env_probe.yml'
+      - 'manuscript/figures/Code/kgfedmarl_env.zip'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Inspect archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP=manuscript/figures/Code/kgfedmarl_env.zip
+          rm -rf /tmp/kgfedmarl_env
+          mkdir -p /tmp/kgfedmarl_env
+          echo '=== ZIP LIST ==='
+          unzip -l "$ZIP" | sed -n '1,220p'
+          unzip -q "$ZIP" -d /tmp/kgfedmarl_env
+          echo '=== FILE TREE ==='
+          find /tmp/kgfedmarl_env -maxdepth 5 -type f -printf '%P\t%k KB\n' | sort | sed -n '1,350p'
+          echo '=== KEY FILES ==='
+          find /tmp/kgfedmarl_env -type f \( -iname 'README*' -o -iname 'requirements*.txt' -o -iname 'pyproject.toml' -o -iname 'setup.py' -o -iname 'environment*.yml' -o -iname 'environment*.yaml' \) -print | sort
+
+      - name: Print README and dependency manifests
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r f; do
+            echo "===== FILE: ${f#/tmp/kgfedmarl_env/} ====="
+            sed -n '1,260p' "$f" || true
+          done < <(find /tmp/kgfedmarl_env -type f \( -iname 'README*' -o -iname 'requirements*.txt' -o -iname 'pyproject.toml' -o -iname 'setup.py' -o -iname 'environment*.yml' -o -iname 'environment*.yaml' \) | sort)
+
+      - name: Locate entry points and feeder definitions
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo '=== PYTHON ENTRYPOINTS ==='
+          grep -RInE '__main__|ArgumentParser|def +main\(' /tmp/kgfedmarl_env --include='*.py' | sed -n '1,320p' || true
+          echo '=== FEEDER / POWER FLOW REFERENCES ==='
+          grep -RInE 'IEEE.?33|IEEE.?69|123|8500|pandapower|opendss|OpenDSS|power.?flow|runpp|DSS' /tmp/kgfedmarl_env --include='*.py' --include='*.md' --include='*.txt' --include='*.yaml' --include='*.yml' | sed -n '1,420p' || true
+
+      - name: Build text manifest artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=/tmp/feeder_env_probe
+          mkdir -p "$OUT"
+          find /tmp/kgfedmarl_env -maxdepth 6 -type f -printf '%P\t%s bytes\n' | sort > "$OUT/file_manifest.txt"
+          grep -RInE '__main__|ArgumentParser|def +main\(|IEEE.?33|IEEE.?69|123|8500|pandapower|opendss|OpenDSS|power.?flow|runpp|DSS' /tmp/kgfedmarl_env --include='*.py' --include='*.md' --include='*.txt' --include='*.yaml' --include='*.yml' > "$OUT/code_index.txt" || true
+          for f in $(find /tmp/kgfedmarl_env -type f \( -iname 'README*' -o -iname 'requirements*.txt' -o -iname 'pyproject.toml' -o -iname 'setup.py' \) | sort); do
+            echo "===== ${f#/tmp/kgfedmarl_env/} =====" >> "$OUT/key_files.txt"
+            cat "$f" >> "$OUT/key_files.txt"
+            printf '\n\n' >> "$OUT/key_files.txt"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: feeder-env-probe
+          path: /tmp/feeder_env_probe
+          retention-days: 7
