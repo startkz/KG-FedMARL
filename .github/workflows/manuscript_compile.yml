@@ -22,6 +22,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install LaTeX and PDF audit tools
+        id: install
+        continue-on-error: true
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
@@ -30,24 +32,45 @@ jobs:
             texlive-lang-chinese ghostscript poppler-utils imagemagick
 
       - name: Compile manuscript
+        id: compile
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
         working-directory: manuscript
         run: |
           latexmk -pdf -shell-escape -interaction=nonstopmode -halt-on-error -file-line-error main.tex
 
       - name: Build layout audit
+        if: always()
         working-directory: manuscript
         shell: bash
         run: |
-          set -euo pipefail
-          pdfinfo main.pdf > pdfinfo.txt
-          pdftotext -layout main.pdf main_layout.txt
-          mkdir -p rendered
-          pdftoppm -png -r 144 main.pdf rendered/page >/dev/null 2>&1
-          montage rendered/page-*.png -thumbnail 240x -tile 4x -geometry +4+4 contact_sheet.png
+          set +e
           python - <<'PY'
           from pathlib import Path
-          import re, subprocess, os
-          text=Path('main_layout.txt').read_text(errors='replace')
+          import os, re
+          install=os.environ.get('INSTALL_OUTCOME','unknown')
+          compile_=os.environ.get('COMPILE_OUTCOME','unknown')
+          lines=[
+              f'run_id={os.environ.get("GITHUB_RUN_ID","")}',
+              f'source_commit={os.environ.get("GITHUB_SHA","")}',
+              f'install_outcome={install}',
+              f'compile_outcome={compile_}',
+          ]
+          pdf=Path('main.pdf')
+          log=Path('main.log')
+          if not pdf.exists():
+              lines += ['pdf_created=no']
+              if log.exists():
+                  txt=log.read_text(errors='replace')
+                  errs=[x for x in txt.splitlines() if x.startswith('!') or 'Error' in x or 'Fatal' in x]
+                  lines += ['', 'COMPILE ERRORS:'] + (errs[-40:] or ['none found in main.log'])
+              Path('compile_audit.txt').write_text('\n'.join(lines)+'\n')
+              print('\n'.join(lines))
+              raise SystemExit(0)
+          lines += ['pdf_created=yes']
+          os.system('pdfinfo main.pdf > pdfinfo.txt')
+          os.system('pdftotext -layout main.pdf main_layout.txt')
+          text=Path('main_layout.txt').read_text(errors='replace') if Path('main_layout.txt').exists() else ''
           pages=text.split('\f')
           if pages and not pages[-1].strip(): pages=pages[:-1]
           markers={
@@ -64,27 +87,21 @@ jobs:
             'references':['REFERENCES'],
           }
           found={}
-          for key, needles in markers.items():
-              hits=[]
-              for i,p in enumerate(pages,1):
-                  if any(n.lower() in p.lower() for n in needles): hits.append(i)
-              found[key]=hits
+          for key,needles in markers.items():
+              found[key]=[i for i,p in enumerate(pages,1) if any(n.lower() in p.lower() for n in needles)]
           exp_start=(found['section_vii'] or [None])[0]
           concl=(found['conclusion'] or [None])[0]
-          exp_span=None
-          if exp_start and concl: exp_span=concl-exp_start
-          log=Path('main.log').read_text(errors='replace')
-          over=re.findall(r'Overfull \\hbox.*',log)
-          under=re.findall(r'Underfull \\hbox.*',log)
-          undef_ref=re.findall(r"LaTeX Warning: Reference `[^']+' on page .* undefined",log)
-          undef_cite=re.findall(r"LaTeX Warning: Citation `[^']+' on page .* undefined",log)
-          rerun=[x for x in log.splitlines() if 'Rerun to get cross-references right' in x or 'There were undefined references' in x]
-          info=Path('pdfinfo.txt').read_text(errors='replace')
+          exp_span=concl-exp_start if exp_start and concl else None
+          ltxt=log.read_text(errors='replace') if log.exists() else ''
+          over=re.findall(r'Overfull \\hbox.*',ltxt)
+          under=re.findall(r'Underfull \\hbox.*',ltxt)
+          undef_ref=re.findall(r"LaTeX Warning: Reference `[^']+' on page .* undefined",ltxt)
+          undef_cite=re.findall(r"LaTeX Warning: Citation `[^']+' on page .* undefined",ltxt)
+          rerun=[x for x in ltxt.splitlines() if 'Rerun to get cross-references right' in x or 'There were undefined references' in x]
+          info=Path('pdfinfo.txt').read_text(errors='replace') if Path('pdfinfo.txt').exists() else ''
           m=re.search(r'^Pages:\s+(\d+)',info,re.M)
           page_count=int(m.group(1)) if m else len(pages)
-          lines=[
-              f'run_id={os.environ.get("GITHUB_RUN_ID","")}',
-              f'source_commit={os.environ.get("GITHUB_SHA","")}',
+          lines += [
               f'page_count={page_count}',
               f'experimental_start_page={exp_start}',
               f'conclusion_start_page={concl}',
@@ -96,20 +113,25 @@ jobs:
               f'rerun_warning_count={len(rerun)}',
           ]
           for k,v in found.items(): lines.append(f'{k}_pages={",".join(map(str,v)) if v else "NOT_FOUND"}')
-          lines.append('')
-          lines.append('OVERFULL:')
-          lines.extend(over[:30] or ['none'])
-          lines.append('')
-          lines.append('UNDEFINED REFERENCES:')
-          lines.extend(undef_ref[:30] or ['none'])
-          lines.append('')
-          lines.append('UNDEFINED CITATIONS:')
-          lines.extend(undef_cite[:30] or ['none'])
+          lines += ['', 'OVERFULL:'] + (over[:30] or ['none'])
+          lines += ['', 'UNDEFINED REFERENCES:'] + (undef_ref[:30] or ['none'])
+          lines += ['', 'UNDEFINED CITATIONS:'] + (undef_cite[:30] or ['none'])
           Path('compile_audit.txt').write_text('\n'.join(lines)+'\n')
           print('\n'.join(lines))
           PY
+          if [ -f main.pdf ]; then
+            mkdir -p rendered
+            pdftoppm -png -r 144 main.pdf rendered/page >/dev/null 2>&1 || true
+            if compgen -G 'rendered/page-*.png' > /dev/null; then
+              montage rendered/page-*.png -thumbnail 240x -tile 4x -geometry +4+4 contact_sheet.png || true
+            fi
+          fi
+        env:
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          COMPILE_OUTCOME: ${{ steps.compile.outcome }}
 
       - name: Upload manuscript and visual audit
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: manuscript-layout-audit
@@ -123,12 +145,13 @@ jobs:
           retention-days: 14
 
       - name: Persist audit pointer on main
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && success()
+        if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -f manuscript/compile_audit.txt
           if ! git diff --cached --quiet; then
             git commit -m "build: record manuscript layout audit"
+            git pull --rebase origin main
             git push
           fi
