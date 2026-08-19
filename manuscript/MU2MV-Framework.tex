@@ -1,0 +1,203 @@
+\section{KG-FEDMARL FRAMEWORK}
+This section describes how KG-FedMARL executes the restoration loop. The framework is organized around a single design rule: the KG must be used before, during, and after the learning decision. Before the decision, it collects evidence and defines the task state; during the decision, it constrains admissible actions; after execution, it stores the observed outcome.
+
+\begin{figure*}[t]
+	\centering
+	\includegraphics[width=\textwidth]{figures/kgfedmarl_architecture.pdf}
+	\caption{KG-FedMARL framework. Fault and cyber evidence is mapped to graph operations on timestamped entities, relations, and attributes. The affected task subgraph is encoded into a semantic state and shared with decentralized role-specific actors. Candidate actions are evaluated by a training-time critic, passed through graph-rule pruning, surrogate screening, and exact feasibility checking, executed in the field, and written back as restoration evidence for future events.}
+	\label{fig-framework}
+\end{figure*}
+
+\subsection{Framework Overview}
+Fig.~\ref{fig-framework} shows the pipeline. KG-FedMARL starts from evidence ingestion: protection trips, SCADA alarms, phasor or meter measurements, controller logs, communication status, and suspected attack indicators are aligned to KG entities with timestamp and confidence attributes. The evidence mapper produces graph operations according to Table~\ref{table-evidence-update}; therefore a measurement anomaly, a delayed command, and a confirmed line fault lead to different updates. The updated KG is then queried for a task subgraph containing the affected physical devices, unavailable cyber resources, candidate actions, active operating rules, and relevant outcome paths. A relation-aware graph encoder maps this subgraph to the semantic state $s_t$.
+
+The decision layer follows centralized training with decentralized execution (CTDE). Each restoration agent observes its local state $o_t^i$ and the shared semantic state $s_t$, then proposes a role-specific local action. A critic is used during training or online advisory scoring to evaluate joint effects, but the learned candidate is not executed directly. The semantic safety filter first removes actions that contradict KG rules or cyber prerequisites, then uses a surrogate feasibility model to screen many candidates cheaply, and finally runs exact physical checks on only a small remaining set. The executed action and its outcome update the KG. In this way, KG-FedMARL is not a linear KG-to-MARL feature pipeline. It is a closed-loop controller in which representation, decision, feasibility checking, and memory are tied to the same graph substrate.
+
+\begin{table*}[t]
+	\centering
+	\caption{Module-level contract of KG-FedMARL}
+	\label{table-module-contract}
+	\setlength{\tabcolsep}{2.4mm}{
+	\resizebox{\textwidth}{!}{
+	\begin{tabular}{llll}
+		\toprule[1.5pt]
+		Module & Input & Output & Failure mode to measure \\
+		\midrule
+		Evidence alignment & Alarms, measurements, controller logs, cyber status & Timestamped KG facts with confidence & Missing or low-trust evidence \\
+		Task query & $\mathcal{K}_t$, evidence seeds, relation whitelist & Fault-affected task subgraph & Query latency or omitted dependency \\
+		Semantic encoder & Task subgraph with node and relation attributes & Global semantic state $s_t$ & Representation loss or noisy attention \\
+		CTDE policy & Local observations and $s_t$ & Candidate local and joint actions & Unsafe or low-value proposal \\
+		Safety filter & Candidate actions, KG rules, physical model & Executable action or fallback & Empty safe set or conservative rejection \\
+		Federated optimizer & Local trajectories, validation scores, model and KG timestamps & Aggregated compatible blocks or distilled role heads & Stale or incompatible update influence \\
+		Outcome write-back & Executed action and restoration outcome & Updated action-path reliability & Incorrect provenance or delayed update \\
+		\bottomrule[1.5pt]
+	\end{tabular}}}
+\end{table*}
+
+\subsection{Client-Agent Organization}
+The federation layer and the MARL layer have different units. A federated client is the site that owns data and compute. In a power CPS this client can be a substation server, feeder edge controller, microgrid controller, or communication-repair center. A restoration agent is a decision role hosted by a client. One client may contain a single agent in a simple feeder study, but it may also contain several agents, for example a switching agent, a load-transfer agent, and a local communication-repair agent.
+
+The action spaces are therefore not assumed to be identical. Switching agents output breaker or tie-switch operations, microgrid agents output islanding, reconnection, and support levels, and communication agents output route repair or rerouting actions. These agents share the relation-aware KG encoder so that they read a common semantic state, but they use role-specific action heads. The centralized critic is a training-time object associated with the coordinating server or with a local client during local rollouts. It evaluates joint effects while parameters are being trained; decentralized execution uses the role actors and the safety filter, so a live field command does not require the federated server to solve the action in real time.
+
+\subsection{Dynamic KG Construction and Task Query}
+The KG schema is constructed around restoration operations rather than static asset cataloguing. Device entities represent buses, feeders, breakers, sensors, relays, controllers, communication nodes, storage, distributed generation, and microgrids. State entities represent energized status, voltage, load level, communication reachability, cyber trust, fault probability, and device health. Action entities represent switching, load transfer, dispatch, islanding, communication rerouting, and shedding. Rule entities represent radiality, voltage and current bounds, protection logic, command authorization, operation priority, and manual safety restrictions.
+
+Given evidence $\mathcal{F}_t$, KG-FedMARL first builds $\mathcal{Z}_t$ and $\mathcal{O}_t$ using Eqs.~\ref{eq-evidence-event}--\ref{eq-graph-ops}. This step gives an operational meaning to ``graph update''. For example, an anomalous bus-voltage stream creates a timestamped \texttt{MeasurementAnomaly} state, adds a \texttt{suspected-corrupts} relation to the corresponding measurement path, and lowers the trust attribute of that path. It does not delete the \texttt{measures} relation unless later evidence confirms that the sensor or route is unavailable. A failed controller similarly updates availability and temporarily deactivates command-execution relations, while an executed repair can reactivate the relation with a new validity interval.
+
+The task query then locates seed entities associated with tripped lines, disconnected sensors, failed controllers, abnormal measurements, and candidate restoration resources. It expands a bounded neighborhood through four relation families: topological relations, cyber-control relations, rule-dependency relations, and outcome-similarity relations. The returned subgraph is
+\begin{align}
+\label{eq-task-query}
+\mathcal{G}^{task}_t=\textsc{TaskQuery}(\mathcal{K}_t,\mathcal{F}_t,k,\mathcal{R}^{use}),
+\end{align}
+where $k$ is the hop limit and $\mathcal{R}^{use}$ is the relation subset admitted for restoration reasoning. In implementation, $k$ should be small enough to keep query latency acceptable, while $\mathcal{R}^{use}$ should include any relation needed by feasibility checks. This design makes the state size depend on the affected restoration context rather than on the full grid.
+
+\subsection{Relation-Aware Semantic Encoding}
+The graph encoder uses node attributes and relation types jointly. For each node $v$, the initial embedding $\mathbf{h}_v^0$ is obtained by projecting the feature vector in Eq.~\ref{eq-node-feature}. For an edge $(u,r,v)$, the relation embedding $\mathbf{r}_{uv}$ carries the relation type, confidence, and temporal recency. Eqs.~\ref{eq-rel-attention}--\ref{eq-gat} then compute relation-aware attention. The final graph state is produced by a hybrid pooling rule:
+\begin{align}
+\label{eq-pool}
+s_t=\left[\textsc{MeanPool}(\mathbf{H}_t^L);\textsc{AttnPool}(\mathbf{H}_t^L,\mathbf{c}_t)\right],
+\end{align}
+where $\mathbf{H}_t^L$ is the set of final node embeddings and $\mathbf{c}_t$ is a context vector built from the fault type, critical-load priority, and cyber-availability summary. Mean pooling stabilizes the representation, while attention pooling emphasizes devices, rules, and action paths most relevant to the current disturbance.
+
+\subsection{Safety-Aware CTDE Restoration Policy}
+Let $g(i)$ denote the action role of agent $i$. The actor consists of a shared semantic encoder $\psi$, a role-specific head $\theta_{g(i)}$, and an optional local adapter $\nu_i$. For agent $i$, the actor uses the augmented observation
+\begin{align}
+\label{eq-policy}
+\pi_{\theta_{g(i)},\nu_i}(a_t^i|\tilde{s}_t^i)=\pi_{\theta_{g(i)},\nu_i}(a_t^i|o_t^i,s_t).
+\end{align}
+The centralized critic estimates the value of the joint action:
+\begin{align}
+\label{eq-critic}
+Q_{\phi}(s_t,\mathbf{o}_t,\mathbf{a}_t),
+\end{align}
+where $\mathbf{o}_t=(o_t^1,\ldots,o_t^N)$. During local training, a client may train a local critic on its own rollouts; during federated aggregation, compatible critic representations are aggregated or used for distillation. The critic is not a field-execution dependency. Actor updates use the advantage estimate
+\begin{align}
+\label{eq-policy-gradient}
+\nabla_{\theta_{g(i)}}J_i=\mathbb{E}\left[\nabla_{\theta_{g(i)}}\log\pi_{\theta_{g(i)},\nu_i}(a_t^i|\tilde{s}_t^i)A_i(s_t,\mathbf{o}_t,\mathbf{a}_t)\right].
+\end{align}
+The critic minimizes
+\begin{align}
+\label{eq-critic-loss}
+\mathcal{L}(\phi)=\mathbb{E}\left[\left(Q_{\phi}(s_t,\mathbf{o}_t,\mathbf{a}_t)-y_t\right)^2\right],
+\end{align}
+with target
+\begin{align}
+\label{eq-td-target}
+y_t=R_t+\gamma Q_{\bar{\phi}}(s_{t+1},\mathbf{o}_{t+1},\mathbf{a}_{t+1}).
+\end{align}
+The policy is called safety-aware because the learned action is a proposal, not the final field command. The executed command is selected after KG and physical validation.
+
+\subsection{Semantic Safety Filter}
+The safety filter receives a candidate set $\mathcal{B}_t$ generated by the actors and by local action expansion. Running full AC power flow or mixed-integer restoration optimization for every joint candidate would remove the speed advantage of learned decision making. KG-FedMARL therefore uses three levels.
+
+First, KG-rule pruning removes candidates that are impossible before numerical checking:
+\begin{align}
+\label{eq-filter-stage1}
+\mathcal{B}_t^{1}=\{\mathbf{a}\in\mathcal{B}_t\mid \textsc{KGOK}(\mathcal{K}_t,\mathbf{a})=1\}.
+\end{align}
+The rule query checks controllability, authorization, cyber reachability, measurement trust, protection logic, and explicit forbidden operations. Second, a learned or regression-based surrogate estimates violation risk:
+\begin{align}
+\label{eq-filter-stage2}
+\mathcal{B}_t^{2}=\textsc{TopK}_{K_f}\{\mathbf{a}\in\mathcal{B}_t^{1}: \widehat{v}_{\chi}(s_t,\mathbf{a})\le \epsilon_{\rm sur}\},
+\end{align}
+where ranking can use $Q_{\phi}(s_t,\mathbf{o}_t,\mathbf{a})-\mu\widehat{v}_{\chi}(s_t,\mathbf{a})$. Third, exact physical validation is applied only to $\mathcal{B}_t^{2}$:
+\begin{align}
+\label{eq-filter-stage3}
+\mathcal{B}_t^{3}=\{\mathbf{a}\in\mathcal{B}_t^{2}\mid \textsc{PhyOK}(s_t,\mathbf{a})=1\}.
+\end{align}
+The selected action is
+\begin{align}
+\label{eq-safe-selection}
+\mathbf{a}_t^*=\arg\max_{\mathbf{a}\in \mathcal{B}_t^{3}}Q_{\phi}(s_t,\mathbf{o}_t,\mathbf{a}).
+\end{align}
+If $\mathcal{B}_t^{3}$ is empty, the controller executes a predefined fallback, such as maintaining the isolated state, preserving local protection, or shedding a limited low-priority load. The filter is conservative by design. It can reduce restoration speed when the KG lacks evidence, but it prevents the learning policy from turning uncertain exploration into unsafe field operation. Its real-time viability depends on $K_f$, surrogate accuracy, and the latency of $\textsc{KGOK}$ and $\textsc{PhyOK}$; these quantities must be reported in experiments.
+
+\subsection{Federated Asynchronous Optimization}
+Operational data are distributed across substations, feeders, microgrids, and edge controllers. KG-FedMARL therefore trains through asynchronous federated aggregation, but only compatible parameter blocks are averaged. During round $r$, client $i$ updates local parameters using its trajectories $\mathcal{D}_i^{(r)}$:
+\begin{align}
+\label{eq-local-update}
+\Theta_i^{(r+1)}=\Theta_i^{(r)}-\alpha\nabla_{\Theta_i}\widehat{\mathcal{L}}_i,
+\end{align}
+where $\Theta_i$ is defined in Eq.~\ref{eq-client-params}. The local loss combines actor-critic loss, safety-violation penalty, and, when role distillation is used, a distillation term on shared task-subgraph probes:
+\begin{align}
+\label{eq-distill}
+\mathcal{L}_{distill}^{i,g}=
+\sum_{\mathcal{G}^{q}\in\mathcal{Q}_g}
+D_{\rm KL}\left(\pi_{\theta_{i,g}}(\cdot|\mathcal{G}^{q})\Vert
+\pi_{\bar{\theta}_{g}}(\cdot|\mathcal{G}^{q})\right).
+\end{align}
+Here $\mathcal{Q}_g$ contains public, synthetic, or sanitized task subgraphs for role $g$ and does not contain raw operational traces.
+
+Asynchronous updates can be stale in two ways. Policy staleness measures how many aggregation rounds have elapsed since client $i$ pulled its base model:
+\begin{align}
+\label{eq-policy-staleness}
+\tau_{i,pol}^{(r)}=r-r_i^{base}.
+\end{align}
+Graph-state staleness measures whether the update was computed under an old topology, fault set, or attack state:
+\begin{align}
+\label{eq-kg-staleness}
+\tau_{i,kg}^{(r)}=D_{\mathcal{K}}\left(\mathcal{G}^{task}_{i,r_i},\mathcal{G}^{task}_{server,r}\right),
+\end{align}
+where $D_{\mathcal{K}}$ can be implemented as a weighted count of changed entities, deactivated relations, confidence shifts, and role-relevant rule changes in the task subgraph. The aggregation weight is
+\begin{align}
+\label{eq-fed-weight}
+\omega_i^{b,(r)}
+&=\frac{m_i^{b,(r)}}{\sum_{j\in\mathcal{P}_{r,b}}m_j^{b,(r)}}, \nonumber\\
+m_i^{b,(r)}
+&=n_i^{(r)}\rho_i^{(r)}
+\exp(-\lambda_p\tau_{i,pol}^{(r)}
+-\lambda_k\tau_{i,kg}^{(r)}),
+\end{align}
+where $b$ denotes a compatible parameter block, $n_i^{(r)}$ is the number of local transitions, $\rho_i^{(r)}$ is a validation reliability score, and $\mathcal{P}_{r,b}$ is the set of clients that submitted block $b$. Updates with schema mismatch or critical graph conflict are rejected; noncritical stale updates are down-weighted. The aggregated shared blocks are
+\begin{align}
+\label{eq-fed-update}
+\psi^{(r+1)}
+&=\sum_{i\in\mathcal{P}_{r,enc}}\omega_i^{enc,(r)}\psi_i^{(r+1)}, \nonumber\\
+\phi^{(r+1)}
+&=\sum_{i\in\mathcal{P}_{r,crit}}\omega_i^{crit,(r)}\phi_i^{(r+1)}.
+\end{align}
+Role heads are aggregated by Eq.~\ref{eq-role-aggregation} only within the same role and compatible output parameterization. The reliability score $\rho_i^{(r)}$ can be computed from validation reward, action-feasibility ratio, KG consistency checks, and surrogate-calibration error. This protocol reduces the privacy-leakage risk caused by centralizing raw event traces, but it is not a formal differential-privacy guarantee unless noise addition, clipping, and an explicit privacy accountant are added.
+
+\begin{algorithm}[t]
+	\caption{KG-FedMARL resilient restoration}
+	\label{alg-kgfedmarl}
+	\KwIn{Initial KG $\mathcal{K}_0$, clients $\mathcal{P}$, agents $\mathcal{I}$, safety rules $\mathcal{C}$, hop limit $k$, aggregation interval $T_f$}
+	\KwOut{Feasible restoration action sequence and updated KG}
+	Initialize shared encoder $\psi$, role heads $\{\theta_g\}$, local adapters $\{\nu_i\}$, critic $Q_{\phi}$, target critic $Q_{\bar{\phi}}$, and replay buffers\;
+	\For{$t=0,1,\ldots,T$}{
+		Collect fault, cyber, and operational evidence $\mathcal{F}_t$\;
+		Align $\mathcal{F}_t$ into $\mathcal{Z}_t$ and map it to graph operations $\mathcal{O}_t$\;
+		Apply $\mathcal{O}_t$ to $\mathcal{K}_t$ with timestamps, confidence, validity, and provenance\;
+		Extract $\mathcal{G}^{task}_t$ by Eq.~\ref{eq-task-query} and encode $s_t$\;
+		\ForEach{agent $i\in\mathcal{I}$}{
+			Build $\tilde{s}_t^i=[o_t^i;s_t]$ and sample or rank local candidates from $\pi_{\theta_{g(i)},\nu_i}$\;
+		}
+		Construct joint candidate set $\mathcal{B}_t$\;
+		Prune $\mathcal{B}_t$ by KG rule queries to obtain $\mathcal{B}_t^1$\;
+		Screen $\mathcal{B}_t^1$ with surrogate risk $\widehat{v}_{\chi}$ to obtain $\mathcal{B}_t^2$\;
+		Run exact physical validation on $\mathcal{B}_t^2$ to obtain $\mathcal{B}_t^3$\;
+		Select $\mathbf{a}_t^*$ by Eq.~\ref{eq-safe-selection}, or execute a fallback if no safe candidate exists\;
+		Observe restored load, elapsed time, violations, cyber cost, and shedding cost\;
+		Write the outcome and explanation paths $\mathcal{P}_a$ back to $\mathcal{K}_{t+1}$\;
+		Update local replay buffers and train local actor-critic models\;
+		\If{$t \bmod T_f=0$}{
+			For each submitted block, compute policy and KG-state staleness\;
+			Aggregate compatible encoder, critic, and role-head blocks using Eqs.~\ref{eq-fed-weight}--\ref{eq-fed-update}\;
+			Distill incompatible role heads on task-subgraph probes when needed\;
+			Broadcast the latest compatible parameters to reachable clients\;
+		}
+	}
+\end{algorithm}
+
+\subsection{Cost Characteristics and Implementation Boundary}
+Let $|\mathcal{V}^{task}_t|$ and $|\mathcal{E}^{task}_t|$ be the task-subgraph size, $d$ the hidden dimension, and $L$ the number of graph-attention layers. The graph-encoding cost is approximately
+\begin{align}
+\label{eq-complexity}
+\mathcal{O}\left(L|\mathcal{E}^{task}_t|d^2+L|\mathcal{V}^{task}_t|d^2\right).
+\end{align}
+The safety-filter cost is
+\begin{align}
+\label{eq-filter-cost}
+\mathcal{O}\left(|\mathcal{B}_t|C_{kg}+|\mathcal{B}_t^{1}|C_{sur}+|\mathcal{B}_t^{2}|C_{phy}\right),
+\end{align}
+where $C_{kg}$ is rule-query cost, $C_{sur}$ is surrogate inference cost, and $C_{phy}$ is exact physical-check cost. The design is useful only when $|\mathcal{B}_t^{2}|\ll|\mathcal{B}_t|$, because exact AC power flow or mixed-integer checks can dominate the decision time. The method is therefore most appropriate when restoration can be decomposed into fault-affected subgraphs and the candidate action set can be generated by local controllers. It is less suitable for a fully centralized exhaustive search over the entire grid at every time step. This boundary is important for evaluation: experiments should report query latency, surrogate-screening latency, exact-check latency, candidate-set shrinkage, stale-update ratio, and communication cost in addition to restoration quality.
