@@ -46,7 +46,7 @@ jobs:
           done
           echo "$OPENDSS_COMMIT" > /tmp/opendss_commit.txt
 
-      - name: Run five-seed feeder experiments
+      - name: Run twenty-seed feeder experiments
         working-directory: manuscript
         run: |
           mkdir -p figures/results figures/final_feeder_results
@@ -54,7 +54,7 @@ jobs:
             --env-zip figures/Code/kgfedmarl_env.zip \
             --opendss-root /tmp/OpenDSS \
             --output figures/results/feeder_runs.csv \
-            --seeds 5 \
+            --seeds 20 \
             --source-commit "$GITHUB_SHA"
 
       - name: Generate four final result groups
@@ -63,7 +63,7 @@ jobs:
           python figures/Code/plot_feeder_results.py \
             --input figures/results/feeder_runs.csv \
             --output-dir figures/final_feeder_results \
-            --min-seeds 5 \
+            --min-seeds 20 \
             --baseline-feeder IEEE33 \
             --intensity-feeder IEEE33 \
             --ablation-feeder IEEE33 \
@@ -109,6 +109,6 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -f manuscript/figures/results manuscript/figures/final_feeder_results
           if ! git diff --cached --quiet; then
-            git commit -m "results: update five-seed feeder experiment outputs"
+            git commit -m "results: update twenty-seed feeder experiment outputs"
             git push
           fi
