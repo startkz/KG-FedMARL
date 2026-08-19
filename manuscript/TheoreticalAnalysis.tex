@@ -1,59 +1,132 @@
-\section{Analytical Properties and Boundary Conditions}
-This appendix states the theoretical interpretation of KG-FedMARL. The results are conditional design properties. They clarify why the architecture is coherent, but they do not replace the empirical KG-FedMARL validation required in Section~\ref{sec:experiments}.
+\section{SECURITY ANALYSIS}
+\label{sec-security-analysis}
+We next establish four mechanism-level guarantees corresponding to the security objectives in Section~\ref{subsec-security-objectives}. The analysis is intentionally scoped to the trust boundaries enforced by Algorithms~\ref{alg-patb}--\ref{alg-trust-policy}; it does not assume that the full nonlinear PCPS or the underlying MARL optimizer admits a global convergence proof.
 
-\subsection{Knowledge-Conditioned Safety}
-\begin{proposition}
-\label{prop-safety}
-If the KG rule base is sound with respect to operational constraints, the surrogate screen is used only for candidate reduction, the exact physical feasibility checker is conservative, and the executed action is selected from $\mathcal{B}_t^{3}$ in Eq.~\ref{eq-filter-stage3}, then KG-FedMARL cannot execute a joint action that violates any encoded rule or checked physical constraint.
-\end{proposition}
-
-\begin{proof}
-The safety filter accepts a candidate only when symbolic validation returns true and the exact numerical physical checker satisfies all encoded constraints. The surrogate screen can remove candidates but cannot certify an unsafe candidate as safe, because every non-fallback command must still pass Eq.~\ref{eq-filter-stage3}. The executed action is either the highest-valued candidate in $\mathcal{B}_t^{3}$ or a predefined safe fallback when $\mathcal{B}_t^{3}$ is empty. Therefore, under sound rule encoding and conservative physical checking, any executed action satisfies the represented constraints by construction.
-\end{proof}
-
-This property is intentionally scoped. It does not claim protection against missing rules, wrong KG facts, inaccurate power-flow models, or compromised validation data. It states that learning exploration is contained by the knowledge and physics available to the controller.
-
-\subsection{Cross-Layer Semantic Sufficiency}
-\begin{proposition}
-\label{prop-semantic}
-Suppose that all variables needed to evaluate restoration reward and feasibility are either included in the task subgraph $\mathcal{G}^{task}_t$ or can be derived from it by KG queries and physical models. Then the augmented observation $\tilde{s}_t^i=[o_t^i;s_t]$ is a sufficient policy input for agent $i$ up to the approximation error of the graph encoder.
-\end{proposition}
-
-\begin{proof}
-The task subgraph contains the affected devices, cyber dependencies, candidate actions, active constraints, and relevant historical outcomes. If these elements determine reward and feasibility together with local observation $o_t^i$, then any information outside $\tilde{s}_t^i$ is conditionally irrelevant for choosing the local action. The graph encoder is a finite-dimensional approximation of this subgraph; therefore the sufficiency holds up to encoder representation error.
-\end{proof}
-
-This proposition explains the role of the KG as a semantic state abstraction. It also identifies a practical risk: if the task subgraph omits a critical dependency, the policy may become myopic or unsafe unless the safety filter catches the omission.
-
-\subsection{Federated Asynchronous Aggregation}
-The federated update in Eq.~\ref{eq-fed-weight} down-weights stale and unreliable updates for each compatible block. If $0\le \rho_i^{(r)}\le 1$, $n_i^{(r)}\ge 0$, $\lambda_p,\lambda_k\ge 0$, and at least one participant has positive mass, then $\omega_i^{b,(r)}\ge 0$ and $\sum_{i\in\mathcal{P}_{r,b}}\omega_i^{b,(r)}=1$. Thus each aggregated block is a convex combination of compatible submitted blocks. Larger policy staleness, larger graph-state staleness, or lower reliability reduces the update influence.
-
-\subsection{Feasibility Decomposition}
-\begin{proposition}
-\label{prop-three-level}
-If semantic admissibility is evaluated by Eq.~\ref{eq-semantic-admissible}, surrogate screening is evaluated by Eq.~\ref{eq-surrogate-screen}, physical feasibility is evaluated by Eq.~\ref{eq-physical-feasible}, and the safety filter uses Eqs.~\ref{eq-filter-stage1}--\ref{eq-filter-stage3}, then an executed non-fallback action is KG-admissible, surrogate-admissible, and physically feasible with respect to the encoded checks.
-\end{proposition}
+\subsection{Bounded Poisoning Influence}
+\begin{theorem}[Bounded poisoning influence]
+\label{thm-bounded-poisoning}
+Consider one assertion $q$ and two belief trajectories with the same initial log-odds, trusted prior, honest evidence, and independently verified feedback. Suppose the attacked trajectory additionally contains evidence from at most $f_p$ compromised provenance groups per update, each with group cap $\beta_g\le\beta_{max}$. Under $0<\lambda_f<1$, the adversarial log-odds deviation satisfies
+\begin{align}
+\label{eq-thm-logodds-bound}
+|L_t^A(q)-L_t^0(q)|
+\le \frac{f_p\beta_{max}}{1-\lambda_f},
+\end{align}
+and the corresponding belief deviation satisfies
+\begin{align}
+\label{eq-thm-belief-bound}
+|b_t^A(q)-b_t^0(q)|
+\le \frac{f_p\beta_{max}}{4(1-\lambda_f)}.
+\end{align}
+\end{theorem}
 
 \begin{proof}
-The filter constructs $\mathcal{B}_t^{1}$ by KG-rule validation, $\mathcal{B}_t^{2}$ by surrogate screening, and $\mathcal{B}_t^{3}$ by exact physical validation. The selected non-fallback action belongs to $\mathcal{B}_t^{3}$ by Eq.~\ref{eq-safe-selection}. Therefore it has passed all three tests used to construct the executable candidate set.
+By Eq.~\ref{eq-patb-group-scale}, the total absolute contribution of one provenance group in one update is at most $\beta_g$. Hence the malicious contribution at time $t$ has magnitude at most $f_p\beta_{max}$. Let $\Delta_t=L_t^A(q)-L_t^0(q)$. Since the honest terms are identical in the two trajectories, Eq.~\ref{eq-patb-update} gives
+\begin{align}
+|\Delta_{t+1}|\le\lambda_f|\Delta_t|+f_p\beta_{max}.
+\end{align}
+With $\Delta_0=0$, unrolling the recursion yields
+\begin{align}
+|\Delta_t|\le f_p\beta_{max}\sum_{k=0}^{t-1}\lambda_f^k
+\le\frac{f_p\beta_{max}}{1-\lambda_f}.
+\end{align}
+The sigmoid derivative is at most $1/4$, so $|\sigma(x)-\sigma(y)|\le|x-y|/4$, which gives Eq.~\ref{eq-thm-belief-bound}.
 \end{proof}
 
-This result is small but useful. It separates failures caused by missing or invalid KG prerequisites, surrogate risk rejection, and exact physical constraints. That separation is needed for ablation studies: removing KG reasoning, removing surrogate screening, and removing the physical checker should produce different failure modes.
+The result shows that bounded evidence control produces bounded knowledge distortion even under repeated evidence injection; the attacker cannot increase influence merely by duplicating reports behind the same provenance group.
 
-\subsection{Staleness and Reliability Monotonicity}
-\begin{proposition}
-\label{prop-fed-mono}
-For fixed compatible participant set $\mathcal{P}_{r,b}$ and fixed positive weighted mass, the aggregation weight in Eq.~\ref{eq-fed-weight} is monotonically non-increasing in policy staleness $\tau_{i,pol}^{(r)}$ and graph-state staleness $\tau_{i,kg}^{(r)}$, and monotonically non-decreasing in reliability $\rho_i^{(r)}$.
-\end{proposition}
+\subsection{False-Authorization Risk}
+\begin{theorem}[False-authorization risk bound]
+\label{thm-false-authorization}
+Let action $\mathbf{a}$ require prerequisites $\mathcal{Q}(\mathbf{a})$. Assume each belief used by the semantic gate is calibrated up to $\varepsilon_q$, in the sense that whenever $b_t(q)\ge1-\delta_q$,
+\begin{align}
+\label{eq-calibration-assumption}
+\Pr(q_t^\star=0\mid b_t(q)\ge1-\delta_q)
+\le\delta_q+\varepsilon_q.
+\end{align}
+If Algorithm~\ref{alg-risk-gate} enforces Eqs.~\ref{eq-gate-prerequisite}--\ref{eq-gate-risk-budget} and the authoritative verifier correctly enforces invariant constraints, then
+\begin{align}
+\label{eq-thm-auth-bound}
+\Pr(\mathbf{a}\ \text{is falsely authorized})
+\le
+\sum_{q\in\mathcal{Q}(\mathbf{a})}(\delta_q+\varepsilon_q)
+\le\bar\delta_B+\sum_{q\in\mathcal{Q}(\mathbf{a})}\varepsilon_q.
+\end{align}
+\end{theorem}
 
 \begin{proof}
-The numerator mass $m_i^{b,(r)}$ is proportional to $\rho_i^{(r)}\exp(-\lambda_p\tau_{i,pol}^{(r)}-\lambda_k\tau_{i,kg}^{(r)})$. When $\lambda_p,\lambda_k\ge0$, the exponential term is non-increasing in both staleness variables. For nonnegative reliability, the numerator is non-decreasing in $\rho_i^{(r)}$. The denominator is the sum of nonnegative compatible participant masses, so the same monotonic direction holds for the normalized weight when the other masses are fixed.
+A semantic false authorization requires at least one prerequisite in $\mathcal{Q}(\mathbf{a})$ to be false while passing Eq.~\ref{eq-gate-prerequisite}. By Eq.~\ref{eq-calibration-assumption} and the union bound, the probability of this event is at most $\sum_q(\delta_q+\varepsilon_q)$. Equation~\ref{eq-gate-risk-budget} gives $\sum_q\delta_q\le\bar\delta_B$. Invariant physical violations are independently rejected by the authoritative verifier and therefore do not increase the semantic bound under the stated verifier assumption.
 \end{proof}
 
-The proposition does not establish convergence of asynchronous MARL. It states a design property of the aggregation rule: delayed or unreliable updates have bounded influence by construction, while recent and validated updates dominate the aggregate.
+This result separates knowledge uncertainty from physical verification: belief quality determines the semantic authorization risk, while invariant safety remains protected by the independent verifier.
 
-\subsection{Subgraph-Scoped Complexity}
-The cost expression in Eq.~\ref{eq-complexity} shows that graph encoding scales with the task subgraph rather than with the full KG. If the query procedure keeps $|\mathcal{V}^{task}_t|$ and $|\mathcal{E}^{task}_t|$ bounded by local restoration context, then the encoder cost remains bounded per decision step for a fixed hidden dimension and fixed number of layers. The filter cost in Eq.~\ref{eq-filter-cost} shows why exact feasibility checking must be applied after KG pruning and surrogate screening. This observation should be tested empirically because the physical checker and KG query engine may dominate runtime even when the neural encoder is lightweight.
+\subsection{Finite Belief Correction}
+\begin{theorem}[Finite correction after poisoning]
+\label{thm-finite-correction}
+Suppose an attack on assertion $q$ ends at time $t_a$ and, from that time onward, the attacked and reference trajectories receive the same uncompromised evidence and verified feedback. Let
+\begin{align}
+\Delta_a=|L_{t_a}^A(q)-L_{t_a}^0(q)|.
+\end{align}
+Under $0<\lambda_f<1$, the belief difference after $k$ additional updates satisfies
+\begin{align}
+\label{eq-thm-correction-decay}
+|b_{t_a+k}^A(q)-b_{t_a+k}^0(q)|
+\le\frac{\lambda_f^k\Delta_a}{4}.
+\end{align}
+Consequently, for tolerance $\epsilon_{corr}>0$, a sufficient correction time is
+\begin{align}
+\label{eq-thm-correction-time}
+T_{corr}(q)
+\le
+\left\lceil
+\frac{\ln\!\left(\max\{1,\Delta_a/(4\epsilon_{corr})\}\right)}
+{\ln(1/\lambda_f)}
+\right\rceil.
+\end{align}
+\end{theorem}
 
-\subsection{Learning Boundary}
-With tabular policies, stationary transition dynamics, bounded rewards, sufficient exploration, and standard stochastic-approximation learning rates, actor-critic or value-based updates can be analyzed using classical Markov decision-process arguments \cite{puterman2014markov}. KG-FedMARL uses function approximation, graph encoders, centralized critics, safety projection, and asynchronous federated updates. Hence the manuscript should not claim a global convergence theorem for the full implementation. The appropriate claim is more limited: the architecture converts restoration into feasible knowledge-conditioned transitions, and empirical convergence must be demonstrated through the KG-specific experiments in Section~\ref{sec:experiments}.
+\begin{proof}
+After $t_a$, no additional adversarial term remains and both trajectories receive identical new evidence. Subtracting their instances of Eq.~\ref{eq-patb-update} gives $|\Delta_{t+1}|=\lambda_f|\Delta_t|$, hence $|\Delta_{t_a+k}|=\lambda_f^k\Delta_a$. Applying the $1/4$ Lipschitz constant of the sigmoid yields Eq.~\ref{eq-thm-correction-decay}. Solving $\lambda_f^k\Delta_a/4\le\epsilon_{corr}$ for $k$ gives Eq.~\ref{eq-thm-correction-time}.
+\end{proof}
+
+The bound is conservative because consistent post-attack evidence can correct the belief faster than temporal forgetting alone.
+
+\subsection{Bounded Policy Drift}
+\begin{theorem}[Trust-gated deployed-policy drift]
+\label{thm-policy-drift}
+Consider attacked and reference deployments that start from the same stable policy and undergo at most $K$ successful promotion events. At promotion $k$, let the attacked and reference candidates satisfy the KL constraints
+\begin{align}
+D_{\rm KL}(\Pi_k^A\|\Pi_{k-1}^A)&\le\epsilon_k^A,\\
+D_{\rm KL}(\Pi_k^0\|\Pi_{k-1}^0)&\le\epsilon_k^0,
+\end{align}
+where $\epsilon_k^A=\epsilon_\pi(\bar\Gamma_k^A)$ is enforced by Algorithm~\ref{alg-trust-policy}. Then the total-variation distance after $K$ promotions is bounded by
+\begin{align}
+\label{eq-thm-tv-policy}
+D_{TV}(\Pi_K^A,\Pi_K^0)
+\le
+\sum_{k=1}^{K}
+\left(\sqrt{\frac{\epsilon_k^A}{2}}+
+\sqrt{\frac{\epsilon_k^0}{2}}\right).
+\end{align}
+For a finite action head whose reference policy probabilities are lower bounded by $p_{min}>0$, this further implies
+\begin{align}
+\label{eq-thm-kl-policy}
+D_{\rm KL}(\Pi_K^A\|\Pi_K^0)
+\le
+\frac{4}{p_{min}}
+\left[
+\sum_{k=1}^{K}
+\left(\sqrt{\frac{\epsilon_k^A}{2}}+
+\sqrt{\frac{\epsilon_k^0}{2}}\right)
+\right]^2.
+\end{align}
+\end{theorem}
+
+\begin{proof}
+Pinsker's inequality gives
+$D_{TV}(\Pi_k^A,\Pi_{k-1}^A)\le\sqrt{\epsilon_k^A/2}$ and the analogous bound for the reference policy. Applying the triangle inequality recursively from the common initial policy yields Eq.~\ref{eq-thm-tv-policy}. For a finite action distribution with $\Pi_K^0(a)\ge p_{min}$, $D_{\rm KL}(P\|Q)\le\chi^2(P\|Q)\le\|P-Q\|_1^2/p_{min}=4D_{TV}^2(P,Q)/p_{min}$, giving Eq.~\ref{eq-thm-kl-policy}.
+\end{proof}
+
+Because $\epsilon_\pi(\cdot)$ is nondecreasing, lower-trust update batches cannot receive a larger promotion radius. The theorem therefore formalizes the role of stable--candidate separation: adversarial evidence may alter candidate learning, but each deployed change remains explicitly bounded and must also pass shadow validation and the recovery gate.
+
+\subsection{Scope of the Guarantees}
+The four results are conditional security guarantees rather than a global convergence theorem for heterogeneous MARL. They require the trusted components specified in Section~\ref{subsec-threat-model}: authenticated source identity, correct implementation of the provenance cap and belief update, and an uncompromised authoritative verifier. They do not protect against arbitrary corruption of the TBox, verifier code, or all independent provenance groups simultaneously. These boundaries are evaluated explicitly in the experiments rather than hidden inside a general learning-convergence claim.
