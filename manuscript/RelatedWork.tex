@@ -1,0 +1,39 @@
+\section{RELATED WORK}
+This section reviews the literature that determines the design space of KG-FedMARL: cross-layer resilience theory, KG representation for CPSs, cyber-physical restoration, and graph-based MARL. Table~\ref{table-re} summarizes which parts of the full restoration loop are covered by each line of work.
+
+\begin{table*}[t]
+	\centering
+	\caption{Positioning of KG-FedMARL against representative research lines}
+	\label{table-re}
+	\setlength{\tabcolsep}{2.2mm}{
+	\resizebox{\textwidth}{!}{
+		\begin{tabular}{lcccccc}
+			\toprule[1.5pt]
+			Research line & Cross-layer CPS theory & Dynamic KG semantics & Physical-cyber restoration & MARL decision making & Federated/asynchronous learning & Rule-level safety filter \\
+			\midrule
+			Cross-layer secure CPS design \cite{zhu2020cross} & $\checkmark$ & $\times$ & $\triangle$ & $\triangle$ & $\times$ & $\triangle$ \\
+			KG surveys and KG-ML foundations \cite{hogan2021knowledgegraphs,reinanda2020knowledge,damato2023machine} & $\times$ & $\checkmark$ & $\times$ & $\triangle$ & $\times$ & $\triangle$ \\
+			Power/industrial KG modeling \cite{wu2026multidimensional,liu2025timecontinuous,wang2025weightedkg} & $\triangle$ & $\checkmark$ & $\triangle$ & $\times$ & $\times$ & $\triangle$ \\
+			Resilient control and coordination \cite{liao2025surveyresilient,game2026hybrid,resilientmpc2025dos} & $\checkmark$ & $\times$ & $\triangle$ & $\triangle$ & $\times$ & $\checkmark$ \\
+			Distribution restoration and reconfiguration \cite{zhou2025faultresilient} & $\triangle$ & $\times$ & $\checkmark$ & $\triangle$ & $\times$ & $\checkmark$ \\
+			KG-assisted learning/control \cite{rodrigues2026agentic,hybridkgdrl2025,graphzero2025} & $\triangle$ & $\checkmark$ & $\triangle$ & $\checkmark$ & $\triangle$ & $\triangle$ \\
+			KG-FedMARL & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ & $\checkmark$ \\
+			\bottomrule[1.5pt]
+	\end{tabular}}}
+	\vspace{1mm}
+	\footnotesize{\emph{Note:} $\checkmark$ denotes a core focus, $\triangle$ denotes partial coverage, and $\times$ denotes limited coverage.}
+\end{table*}
+
+\subsection{Cross-Layer Resilience in Cyber-Physical Systems}
+Cross-layer CPS resilience starts from the observation that an attack or fault can propagate through several layers before its operational effect is visible. The decision- and game-theoretic treatment by Zhu and Xu is the theoretical basis used here: resilience is shaped by incomplete information, strategic interaction, layer coupling, and the timing of defensive responses \cite{zhu2020cross}. Recent control studies instantiate parts of this view through secure MPC, resilient observers, game-theoretic mitigation, event-triggered control, anti-windup fault tolerance, sliding-mode control, and distributed consensus under malicious attacks \cite{game2026hybrid,resilientmpc2025dos,adaptive2025event,antiwindup2025secure,fixedtime2025sliding,fullydistributed2025consensus}. Their strength is mathematical control analysis. Their limitation for the present restoration task is that the cyber-physical relations needed by operators are usually not explicit data objects. KG-FedMARL keeps the cross-layer formulation but exposes those relations as typed graph facts that can be queried by a decision algorithm.
+
+\subsection{Knowledge Graphs and Neuro-Symbolic Learning}
+KG research offers three ingredients needed by restoration: typed relations for heterogeneous data, symbolic rules for validation, and embeddings or graph neural networks for learning over relational neighborhoods \cite{hogan2021knowledgegraphs}. Information-retrieval work adds practical concerns such as entity linking, relation explanation, graph completion, and quality estimation \cite{reinanda2020knowledge}. Recent KG-ML studies describe the remaining gap between symbolic semantics and data-driven learning, arguing that future systems should allow each side to improve the other \cite{damato2023machine}. KG-FedMARL uses this neuro-symbolic stance directly: graph facts constrain actions, graph neighborhoods become policy inputs, and executed actions update graph memory.
+
+For CPSs and power infrastructure, KGs have been used to model temporal system behavior, weighted information dependencies, power-grid threats, and dynamic control reconfiguration \cite{liu2025timecontinuous,wang2025weightedkg,wu2026multidimensional,knowledge2025dynamic}. Causal graph learning and KG verification have also been studied for online cyberattack detection in industrial systems \cite{incremental2026causal,hybridtcdf2026}. These studies show that a graph can carry operational semantics, but most stop before action selection. The present work extends this line by connecting KG reasoning to a constrained multi-agent restoration policy.
+
+\subsection{Resilient Restoration of Power CPSs}
+Power distribution restoration has long studied fault isolation, switch reconfiguration, load recovery, distributed-generation support, and radiality or power-flow constraints. More recent cyber-physical restoration work adds communication recovery and situational-awareness constraints. Hybrid flow constraints and minimum-cost communication restoration, for example, can coordinate feeder self-healing with impaired communication \cite{zhou2025faultresilient}. Resilient coordination surveys similarly emphasize that malicious CPS events exploit topology, information channels, and physical dynamics at the same time \cite{liao2025surveyresilient}. The remaining issue is representation. Static coupling matrices are hard to update when an outage evolves; handcrafted constraints are hard to reuse across scenarios. KG-FedMARL models those couplings as dynamic typed relations and uses the affected subgraph as the unit of restoration reasoning.
+
+\subsection{Multi-Agent Reinforcement Learning and Graph-Based Decision}
+MARL is a natural tool when several controllers act locally but influence a shared objective. Graph neural networks are useful in power systems because the relevant dependencies are non-Euclidean and topology dependent \cite{gnnpowersystems2024}. Graph reinforcement learning has been studied for scalable zero-day behavioral intrusion detection, and hybrid KG-deep RL has been explored for EV-charging anomaly detection \cite{graphzero2025,hybridkgdrl2025}. Agentic-control frameworks have also begun to combine KG retrieval with game-theoretic multi-agent learning \cite{rodrigues2026agentic}. KG-FedMARL differs in its execution boundary: it targets restoration actions in a power CPS, checks candidate actions before field execution, and trains through a federated asynchronous protocol that reflects distributed operational ownership.
