@@ -19,55 +19,98 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Inspect archive
+      - name: Unpack environment
         shell: bash
         run: |
           set -euo pipefail
           ZIP=manuscript/figures/Code/kgfedmarl_env.zip
           rm -rf /tmp/kgfedmarl_env
           mkdir -p /tmp/kgfedmarl_env
-          echo '=== ZIP LIST ==='
-          unzip -l "$ZIP" | sed -n '1,220p'
           unzip -q "$ZIP" -d /tmp/kgfedmarl_env
+          echo '=== ZIP LIST ==='
+          unzip -l "$ZIP" | sed -n '1,240p'
           echo '=== FILE TREE ==='
-          find /tmp/kgfedmarl_env -maxdepth 5 -type f -printf '%P\t%k KB\n' | sort | sed -n '1,350p'
-          echo '=== KEY FILES ==='
-          find /tmp/kgfedmarl_env -type f \( -iname 'README*' -o -iname 'requirements*.txt' -o -iname 'pyproject.toml' -o -iname 'setup.py' -o -iname 'environment*.yml' -o -iname 'environment*.yaml' \) -print | sort
+          find /tmp/kgfedmarl_env -maxdepth 6 -type f -printf '%P\t%k KB\n' | sort | sed -n '1,420p'
+          echo '=== INNER 8500 ARCHIVE ==='
+          unzip -l /tmp/kgfedmarl_env/configs/8500node.zip | sed -n '1,260p' || true
 
-      - name: Print README and dependency manifests
+      - name: Print executable source
         shell: bash
         run: |
           set -euo pipefail
-          while IFS= read -r f; do
-            echo "===== FILE: ${f#/tmp/kgfedmarl_env/} ====="
-            sed -n '1,260p' "$f" || true
-          done < <(find /tmp/kgfedmarl_env -type f \( -iname 'README*' -o -iname 'requirements*.txt' -o -iname 'pyproject.toml' -o -iname 'setup.py' -o -iname 'environment*.yml' -o -iname 'environment*.yaml' \) | sort)
+          for rel in \
+            README.md requirements.txt Dockerfile docker-compose.yml scripts/run_all.sh \
+            feeders/pandapower_33_69.py feeders/opendss_123.py feeders/gridlabd_8500.py \
+            cosim/helics_broker.py cosim/power_federate.py cosim/comm_federate.py cosim/marl_federate.py \
+            kg_plane/belief_graph.py kg_plane/recovery_gate.py kg_plane/__init__.py; do
+            f="/tmp/kgfedmarl_env/$rel"
+            if [ -f "$f" ]; then
+              echo "===== FILE: $rel ====="
+              sed -n '1,360p' "$f"
+            else
+              echo "===== MISSING: $rel ====="
+            fi
+          done
 
-      - name: Locate entry points and feeder definitions
+      - name: Install lightweight feeder dependencies
         shell: bash
         run: |
           set -euo pipefail
-          echo '=== PYTHON ENTRYPOINTS ==='
-          grep -RInE '__main__|ArgumentParser|def +main\(' /tmp/kgfedmarl_env --include='*.py' | sed -n '1,320p' || true
-          echo '=== FEEDER / POWER FLOW REFERENCES ==='
-          grep -RInE 'IEEE.?33|IEEE.?69|123|8500|pandapower|opendss|OpenDSS|power.?flow|runpp|DSS' /tmp/kgfedmarl_env --include='*.py' --include='*.md' --include='*.txt' --include='*.yaml' --include='*.yml' | sed -n '1,420p' || true
+          python -m pip install --upgrade pip
+          python -m pip install 'numpy>=1.26' 'pandas>=2.2' 'pandapower>=3.5' 'networkx>=3.2' 'rdflib>=7.0' 'pydantic>=2.0'
 
-      - name: Build text manifest artifact
+      - name: Run feeder and trust-plane smoke tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/kgfedmarl_env
+          mkdir -p /tmp/feeder_smoke
+          echo '=== IEEE33 ==='
+          python feeders/pandapower_33_69.py --case ieee33 --out /tmp/feeder_smoke/ieee33.csv
+          echo '=== IEEE69 ==='
+          python feeders/pandapower_33_69.py --case ieee69 --out /tmp/feeder_smoke/ieee69.csv
+          echo '=== 123 PROGRAMMATIC ==='
+          python feeders/opendss_123.py --out /tmp/feeder_smoke/ieee123.csv
+          echo '=== BELIEF GRAPH ==='
+          python kg_plane/belief_graph.py
+          echo '=== RECOVERY GATE ==='
+          python kg_plane/recovery_gate.py
+          echo '=== OUTPUT SHAPES ==='
+          python - <<'PY'
+          import pandas as pd
+          for p in ['/tmp/feeder_smoke/ieee33.csv','/tmp/feeder_smoke/ieee69.csv','/tmp/feeder_smoke/ieee123.csv']:
+              df=pd.read_csv(p)
+              print(p, df.shape, list(df.columns), df.head(2).to_dict(orient='records'))
+          PY
+
+      - name: Static import audit
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd /tmp/kgfedmarl_env
+          python -m py_compile feeders/*.py cosim/*.py kg_plane/*.py
+          python - <<'PY'
+          from feeders import pandapower_33_69 as p3369
+          from feeders import opendss_123 as p123
+          print('build_33', len(p3369.build_33().bus))
+          print('build_69', len(p3369.build_69().bus))
+          print('build_123', len(p123.build_123().bus))
+          PY
+
+      - name: Build audit artifact
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
           OUT=/tmp/feeder_env_probe
           mkdir -p "$OUT"
           find /tmp/kgfedmarl_env -maxdepth 6 -type f -printf '%P\t%s bytes\n' | sort > "$OUT/file_manifest.txt"
-          grep -RInE '__main__|ArgumentParser|def +main\(|IEEE.?33|IEEE.?69|123|8500|pandapower|opendss|OpenDSS|power.?flow|runpp|DSS' /tmp/kgfedmarl_env --include='*.py' --include='*.md' --include='*.txt' --include='*.yaml' --include='*.yml' > "$OUT/code_index.txt" || true
-          for f in $(find /tmp/kgfedmarl_env -type f \( -iname 'README*' -o -iname 'requirements*.txt' -o -iname 'pyproject.toml' -o -iname 'setup.py' \) | sort); do
-            echo "===== ${f#/tmp/kgfedmarl_env/} =====" >> "$OUT/key_files.txt"
-            cat "$f" >> "$OUT/key_files.txt"
-            printf '\n\n' >> "$OUT/key_files.txt"
-          done
+          unzip -l /tmp/kgfedmarl_env/configs/8500node.zip > "$OUT/8500_archive.txt" || true
+          cp -f /tmp/feeder_smoke/*.csv "$OUT/" 2>/dev/null || true
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: feeder-env-probe
+          name: feeder-env-runtime-audit
           path: /tmp/feeder_env_probe
           retention-days: 7
