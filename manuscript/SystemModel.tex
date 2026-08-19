@@ -1,177 +1,117 @@
 \begin{table}[t]
-	\centering
-	\caption{Key notations}
-	\label{table-notations1}
-	\setlength{\tabcolsep}{1.2mm}{
-	\begin{tabular}{ll}
-		\toprule[1.5pt]
-		Notation & Definition \\
-		\midrule
-		$\mathcal{G}^{p}$ & Physical power network graph \\
-		$\mathcal{G}^{c}$ & Cyber communication and control graph \\
-		$\mathcal{K}_t$ & Dynamic power-CPS knowledge graph at time $t$ \\
-		$\mathcal{E},\mathcal{R},\mathcal{X}$ & Entity, relation, and attribute sets in $\mathcal{K}_t$ \\
-		$\mathcal{F}_t$ & Fault and attack evidence observed at time $t$ \\
-		$\mathcal{Z}_t$ & Aligned evidence-event set at time $t$ \\
-		$\mathcal{O}_t$ & Graph-operation set applied to $\mathcal{K}_t$ \\
-		$\mathcal{G}^{task}_t$ & Fault-affected task subgraph extracted from $\mathcal{K}_t$ \\
-		$s_t$ & Global semantic state vector encoded from $\mathcal{G}^{task}_t$ \\
-		$o_t^i$ & Local observation of restoration agent $i$ \\
-		$a_t^i$ & Local restoration action of agent $i$ \\
-		$\mathbf{a}_t$ & Joint restoration action \\
-		$\mathcal{A}^{safe}(s_t)$ & Rule- and physics-feasible joint action set \\
-		$\eta_t$ & Recovered load ratio after action execution \\
-		$N_{\rm viol}(t)$ & Number or severity of safety violations \\
-		$\psi,\theta_g,\nu_i,\phi$ & Shared encoder, role head, local adapter, and critic parameters \\
-		$\omega_i$ & Federated aggregation weight of client $i$ \\
-		\bottomrule[1.5pt]
-	\end{tabular}}
+\centering
+\caption{Key notations used in the system and threat model}
+\label{table-notations1}
+\setlength{\tabcolsep}{1.5mm}
+\begin{tabular}{ll}
+\toprule[1.5pt]
+Notation & Definition \\
+\midrule
+$\mathcal{G}^{p}_t,\mathcal{G}^{c}_t$ & Physical and cyber network graphs at time $t$ \\
+$\mathcal{R}^{pc}$ & Typed cross-layer dependency set \\
+$x_t$ & Latent cross-layer system state \\
+$\mathbf{a}_t$ & Joint restoration action \\
+$\mathcal{G}^{B}_t$ & Recovery belief knowledge graph \\
+$\mathcal{T}^{0}$ & Trusted ontology, schema, and invariant rule base \\
+$\mathcal{A}_t$ & Dynamic assertion set \\
+$\mathcal{B}_t$ & Belief state over dynamic assertions \\
+$\mathcal{P}_t$ & Evidence-provenance dependency graph \\
+$\mathcal{Z}_t$ & Evidence-event set received at time $t$ \\
+$\mathcal{S}_{E}$ & Set of evidence sources \\
+$\mathcal{S}_{A}$ & Adversary-controlled evidence sources \\
+\bottomrule[1.5pt]
+\end{tabular}
 \end{table}
 
 \section{SYSTEM MODEL}
-This section defines the cross-layer power-CPS model and the dynamic knowledge graph used by KG-FedMARL. Table~\ref{table-notations1} lists the main notation.
+\label{sec-system-model}
+This section defines the cross-layer power cyber-physical system (PCPS), the recovery knowledge plane, and the adversary considered in this work. Unlike conventional restoration models that treat diagnostic outputs and cyber-physical dependencies as correct side information, we explicitly model runtime recovery knowledge as incomplete and potentially adversarial. The central modeling distinction is between a trusted semantic basis and dynamic assertions whose validity must be inferred from time-varying evidence.
 
-\subsection{Cross-Layer Power-CPS Architecture}
-We model a power CPS as an interdependent system
+\subsection{Cross-Layer PCPS and Restoration Process}
+\label{subsec-cross-layer-system}
+We model a PCPS as an interdependent system
 \begin{align}
 \label{eq-cross-layer-system}
-\mathcal{S}=\{\mathcal{G}^{p},\mathcal{G}^{c},\mathcal{D},\mathcal{U},\mathcal{C}\},
+\mathfrak{S}_t=
+\big\{\mathcal{G}^{p}_t,\mathcal{G}^{c}_t,\mathcal{D},\mathcal{U},\mathcal{R}^{pc},\mathcal{C}^{\rm inv}\big\},
 \end{align}
-where $\mathcal{G}^{p}=(\mathcal{V}^{p},\mathcal{L}^{p})$ is the physical power network, $\mathcal{G}^{c}=(\mathcal{V}^{c},\mathcal{L}^{c})$ is the cyber communication and control network, $\mathcal{D}$ denotes distributed measurement and actuation devices, $\mathcal{U}$ denotes controllable restoration resources, and $\mathcal{C}$ denotes operational constraints.
+where $\mathcal{G}^{p}_t=(\mathcal{V}^{p}_t,\mathcal{L}^{p}_t)$ is the physical power network, $\mathcal{G}^{c}_t=(\mathcal{V}^{c}_t,\mathcal{L}^{c}_t)$ is the cyber communication and control network, $\mathcal{D}$ contains measurement, protection, control, and actuation devices, $\mathcal{U}$ denotes controllable restoration resources, and $\mathcal{C}^{\rm inv}$ denotes invariant engineering constraints that cannot be relaxed by runtime evidence.
 
-The physical node set $\mathcal{V}^{p}$ contains buses, feeders, transformers, generators, energy-storage units, loads, distributed generators, and microgrid interfaces. Physical lines $\mathcal{L}^{p}$ carry power flows and are constrained by radiality, voltage magnitude, current limits, switch states, protection coordination, and resource capacities. The cyber node set $\mathcal{V}^{c}$ contains control centers, substation controllers, intelligent electronic devices, communication relays, edge servers, and monitoring terminals. Cyber links $\mathcal{L}^{c}$ transmit measurements, commands, protection messages, model updates, and restoration coordination signals.
+The physical layer contains buses, feeders, transformers, breakers, distributed generators, storage units, loads, and microgrid interfaces. Its operation is constrained by power balance, voltage limits, thermal limits, device capacities, switching logic, radiality, and protection coordination. The cyber layer contains control centers, substation controllers, RTUs, IEDs, communication relays, edge servers, and monitoring terminals. Cyber links carry measurements, protection messages, control commands, and restoration coordination traffic.
 
-Physical and cyber layers are coupled by typed dependencies. A cyber controller may supervise a physical breaker; a sensor may measure a bus voltage; a communication path may be required before a remote switch command can be executed; a power-line fault may also damage fiber links installed on the same corridor. We represent these dependencies as a cross-layer relation set
+The two layers are coupled by typed dependencies
 \begin{align}
 \label{eq-coupling-relation}
-\mathcal{R}^{pc}=\{(u,r,v)\mid u\in\mathcal{V}^{p}\cup\mathcal{V}^{c}, v\in\mathcal{V}^{p}\cup\mathcal{V}^{c}\}.
+\mathcal{R}^{pc}=\{(u,r,v)\mid u,v\in\mathcal{V}^{p}_t\cup\mathcal{V}^{c}_t\},
 \end{align}
-This explicit relation set follows the cross-layer CPS design principle that resilience emerges from inter-layer coordination rather than isolated layer hardening \cite{zhu2020cross}.
+including observation, actuation, communication, protection, and common-cause dependencies. For example, a bus-voltage observation depends on a sensor and its communication path; a remote switch operation depends on a controller, authorization rule, and command route; and a physical corridor failure may simultaneously disrupt an electrical line and a co-located communication link. These dependencies are decision relevant because an electrically feasible action may still be unavailable when its cyber prerequisites are not satisfied.
 
-\subsection{Cross-Layer Dependency Classes}
-For restoration, not every dependency has the same decision meaning. We divide $\mathcal{R}^{pc}$ into four classes that are checked at different points in the KG-FedMARL loop.
-
-\emph{Observation dependencies} connect a physical quantity to the sensing, communication, and trust chain that makes it observable. A voltage value at bus $v$ is usable only if the associated sensor, communication route, timestamp, and trust attribute are acceptable. \emph{Actuation dependencies} connect an action to the cyber path, authorization rule, and device state required for execution. \emph{Constraint dependencies} connect actions and devices to radiality, voltage, thermal, protection, load-priority, and communication-availability constraints. \emph{Damage dependencies} represent co-location or causal relations through which a physical event can degrade cyber resources, or a cyber attack can corrupt physical-state estimation.
-
-This separation matters because the restoration controller should not treat all missing information as the same kind of uncertainty. A missing measurement affects state estimation; an unavailable command path affects action feasibility; an active protection rule affects admissibility; and a suspected data attack affects trust. KG-FedMARL keeps these distinctions in the KG relation vocabulary so that the policy input and the safety filter receive different evidence for different failure mechanisms.
-
-\subsection{Fault, Attack, and Restoration Process}
-At each decision time $t$, the system receives incomplete evidence $\mathcal{F}_t$ from protection devices, supervisory control and data acquisition logs, phasor measurements, alarms, and communication status. The evidence may include line trips, abnormal voltage, unavailable sensors, delayed commands, corrupted measurements, and suspected cyber attacks. The true system condition is partially observed because faults can disable the sensing and communication channels needed to diagnose them.
-
-Restoration actions include switch opening/closing, feeder reconfiguration, load transfer, distributed-generator dispatch, energy-storage support, microgrid islanding or reconnection, communication-path repair, relay/protection-rule adjustment, and temporary load shedding. Not every action is feasible in every state. An action must satisfy both physical constraints and cyber prerequisites. For example, closing a tie switch is invalid if it creates a loop in a radial feeder, overloads a line, violates a voltage bound, or relies on an unavailable control path.
-
-We describe the system transition as
+Let $x_t\in\mathcal{X}$ denote the latent cross-layer state. Under joint restoration action $\mathbf{a}_t$, the system evolves as
 \begin{align}
 \label{eq-system-transition}
 x_{t+1}=f(x_t,\mathbf{a}_t,\xi_t),
 \end{align}
-where $x_t$ is the latent cross-layer state, $\mathbf{a}_t$ is the joint restoration action, and $\xi_t$ captures stochastic fault evolution, demand fluctuation, renewable output, cyber delay, and model uncertainty. The learning agents cannot observe $x_t$ directly; instead they use local observations and graph-derived semantic states.
+where $\xi_t$ captures fault evolution, demand and renewable variation, communication delay, attack effects, and model uncertainty. Restoration actions include switching, feeder reconfiguration, load transfer, distributed-generation dispatch, storage support, microgrid islanding/reconnection, communication rerouting or repair, controller switching, and emergency shedding. The true state $x_t$ is not directly observable because the same disturbance that requires recovery may also corrupt or disable the sensing, communication, and control paths needed to diagnose it. Consequently, recovery decisions are made from local observations together with an online knowledge state inferred from heterogeneous evidence.
 
-\subsection{Dynamic Power-CPS Knowledge Graph}
-The dynamic knowledge graph at time $t$ is
+\subsection{Recovery Knowledge Plane and Adversarial Evidence}
+\label{subsec-recovery-knowledge-plane}
+We define the \emph{recovery knowledge plane} as the semantic state used to represent current cyber-physical availability, observation trust, action prerequisites, and restoration-relevant history. To separate stable engineering knowledge from attack-time observations, the recovery belief knowledge graph at time $t$ is represented as
 \begin{align}
 \label{eq-kg}
-\mathcal{K}_t=(\mathcal{E}_t,\mathcal{R}_t,\mathcal{X}_t,\mathcal{T}_t),
+\mathcal{G}^{B}_t=
+\big(\mathcal{T}^{0},\mathcal{A}_t,\mathcal{B}_t,\mathcal{P}_t,\mathcal{V}_t\big),
 \end{align}
-where $\mathcal{E}_t$ is the entity set, $\mathcal{R}_t$ is the relation set, $\mathcal{X}_t$ stores attributes, and $\mathcal{T}_t$ stores temporal validity and provenance. The graph follows the general KG view of typed entities, relations, ontologies, rules, reasoning, and embeddings \cite{hogan2021knowledgegraphs,reinanda2020knowledge}. In KG-FedMARL, the entity set includes four restoration-oriented classes:
-\begin{itemize}
-	\item \emph{Device entities}: buses, lines, breakers, transformers, sensors, relays, controllers, communication nodes, generators, loads, storage units, and microgrids.
-	\item \emph{State entities}: energized/de-energized state, load level, voltage, frequency, communication availability, fault probability, device health, and cyber trust.
-	\item \emph{Action entities}: switching, load transfer, generator dispatch, storage charging/discharging, microgrid islanding, communication rerouting, and emergency shedding.
-	\item \emph{Rule entities}: protection settings, radiality rules, voltage/current limits, control authorization, operation manuals, safety constraints, and restoration priorities.
-\end{itemize}
+where $\mathcal{T}^{0}$ is the trusted ontology, schema, and invariant rule base; $\mathcal{A}_t$ is the set of runtime assertions; $\mathcal{B}_t$ contains beliefs over these assertions; $\mathcal{P}_t$ records evidence provenance and source dependencies; and $\mathcal{V}_t$ stores temporal validity information. The trusted layer $\mathcal{T}^{0}$ describes entity and relation types, immutable engineering semantics, protection rules, and authenticated configuration constraints. Runtime claims such as \emph{controller available}, \emph{measurement path trustworthy}, \emph{command route reachable}, or \emph{restoration action successful} belong to $\mathcal{A}_t$ and are not assumed to be correct merely because they have been inserted into the graph.
 
-The relation vocabulary is designed for restoration rather than generic asset management. It includes \emph{topologically-connected}, \emph{communicates-with}, \emph{measures}, \emph{controls}, \emph{depends-on}, \emph{causes}, \emph{relieves}, \emph{violates}, \emph{satisfies}, \emph{precedes}, and \emph{similar-to}. A typed triple $(e_h,r,e_t)$ can therefore state that a relay controls a breaker, a breaker connects two buses, a communication route is needed by a switch action, or a previous load-transfer action relieved a similar fault.
+For each dynamic assertion $q\in\mathcal{A}_t$, the system maintains a belief
+\begin{align}
+\label{eq-fact-belief}
+b_t(q)=\Pr\big(q_t^{\star}=1\mid \mathcal{Z}_{0:t}\big),\qquad b_t(q)\in[0,1],
+\end{align}
+where $q_t^{\star}$ denotes the unknown ground-truth status of $q$ and $\mathcal{Z}_{0:t}$ is the evidence history available up to time $t$. This representation avoids equating missing evidence with failure or the absence of an alarm with trustworthiness. A dynamic assertion may therefore remain uncertain until sufficient independent evidence is available.
 
-The graph is updated online rather than rebuilt from scratch. Raw evidence $\mathcal{F}_t$ is first aligned to an evidence-event set
+Evidence is collected from heterogeneous sources
+\begin{align}
+\mathcal{S}_{E}=
+\mathcal{S}_{\rm meas}\cup
+\mathcal{S}_{\rm prot}\cup
+\mathcal{S}_{\rm IDS}\cup
+\mathcal{S}_{\rm ctrl}\cup
+\mathcal{S}_{\rm net}\cup
+\mathcal{S}_{\rm out},
+\end{align}
+covering measurements, protection events, attack-detection outputs, controller logs, network status, and restoration outcomes. An evidence event is represented as
 \begin{align}
 \label{eq-evidence-event}
-\mathcal{Z}_t=\{z=(e_s,\kappa,e_o,v_z,t,c_z,p_z)\},
+z_j=\big(q_j,v_j,s_j,t^{e}_j,t^{r}_j,c^{src}_j,p_j\big),
 \end{align}
-where $e_s$ is the source entity, $\kappa$ is the evidence type, $e_o$ is the affected entity or relation, $v_z$ is the reported value, $c_z\in[0,1]$ is evidence confidence, and $p_z$ stores provenance. Each event is converted by a rule-and-scoring mapper $\mathcal{M}_{\psi}$ into graph operations
-\begin{align}
-\label{eq-graph-ops}
-\mathcal{O}_t&=\mathcal{M}_{\psi}(\mathcal{Z}_t,\mathcal{K}_t) \nonumber\\
-&=\{\textsc{AddE},\textsc{AddR},\textsc{UpdateX},\textsc{DeactivateR}\}.
-\end{align}
-The resulting graph update is
-\begin{align}
-\label{eq-kg-update}
-\mathcal{K}_{t+1}=\textsc{Apply}\left(\mathcal{K}_t,\mathcal{O}_t,\mathbf{p}_t\right),
-\end{align}
-where every changed fact receives a timestamp, validity interval, source tag, and confidence. Uncertain cyber or measurement evidence does not physically remove a relation. It adds a state entity and reduces a confidence or trust attribute. A relation is deactivated only when the evidence is confirmed, and even then the old relation is retained with an expired validity interval for audit and replay.
+where $q_j$ is the assertion addressed by the evidence, $v_j$ is the reported value or event type, $s_j\in\mathcal{S}_E$ is the source identity, $t^{e}_j$ is the source-reported event time, $t^{r}_j$ is the receive time recorded by the trusted ingestion point, $c^{src}_j$ is the confidence reported by the source, and $p_j$ is its provenance chain. Source-reported confidence is treated as evidence metadata rather than as trust; a compromised but authenticated source may report an arbitrarily high confidence for a false statement.
 
-\begin{table*}[t]
-	\centering
-	\caption{Evidence-to-knowledge-graph update rules used by KG-FedMARL}
-	\label{table-evidence-update}
-	\setlength{\tabcolsep}{2.0mm}{
-	\resizebox{\textwidth}{!}{
-	\begin{tabular}{llll}
-		\toprule[1.5pt]
-		Evidence event & Entity operation & Relation operation & Attribute operation \\
-		\midrule
-		Line trip or breaker alarm & Add \texttt{FaultState} for the line, breaker, or feeder & Add \texttt{affects} links to buses, loads, sensors, and candidate actions & Set line status, fault probability, isolation time, and evidence confidence \\
-		Measurement anomaly & Add \texttt{MeasurementAnomaly} or \texttt{SuspectedAttackState} with timestamp & Add \texttt{suspected-corrupts}; keep \texttt{measures} but lower its confidence & Decrease measurement-path trust and increase observation uncertainty \\
-		Controller unavailable or delayed command & Add \texttt{UnavailableControllerState} or \texttt{DelayState} & Temporarily deactivate \texttt{can-execute} or \texttt{requires-route} if confirmed & Update reachability, latency, authorization, and command-success probability \\
-		Communication reroute or repair & Add \texttt{RepairState} for the affected route & Add or reactivate \texttt{communicates-with} and \texttt{supports-command} & Update bandwidth, latency, route reliability, and repair time \\
-		Executed restoration action & Add \texttt{RestorationOutcome} linked to the action and context & Add \texttt{relieves}, \texttt{violates}, or \texttt{similar-to} explanation paths & Update load recovery, violation count, cyber cost, and action success memory \\
-		\bottomrule[1.5pt]
-	\end{tabular}}}
-\end{table*}
+The provenance component $\mathcal{P}_t=(\mathcal{V}^{P}_t,\mathcal{E}^{P}_t)$ captures dependencies among sensors, RTUs, gateways, detectors, and communication paths. This is necessary because apparently distinct reports may share the same compromised upstream component and hence cannot be treated as statistically independent votes. Provenance is therefore part of the security semantics of the knowledge state, rather than an audit-only attribute. The concrete belief-update rule, temporal decay, source-reliability estimation, and bounded provenance-group influence are introduced in Section~V.
 
-For soft evidence, confidence is updated by a bounded exponential rule
+\subsection{Threat Model and Trust Boundary}
+\label{subsec-threat-model}
+We consider an attacker whose objective is to corrupt the recovery knowledge plane so that incorrect beliefs alter restoration constraints or subsequent policy adaptation. The attacker may compromise a bounded subset of measurement devices, RTUs/IEDs, communication gateways, detector interfaces, local controllers, or outcome-reporting modules. Let
 \begin{align}
-\label{eq-confidence-update}
-c_{q,t+1}=(1-\alpha)c_{q,t}+\alpha\,\varsigma(z,q),
+\label{eq-attacker-sources}
+\mathcal{S}_{A}\subseteq\mathcal{S}_{E}
 \end{align}
-where $c_{q,t}$ is the confidence of a fact, relation, or attribute $q$ and $\varsigma(z,q)$ is the evidence-specific support score returned by $\mathcal{M}_{\psi}$. For action entities, the graph maintains a reliability attribute
+denote the controlled sources. For a compromised source, the attacker may fabricate, suppress, delay, replay, or modify evidence, manipulate the source-reported event time and confidence, and coordinate multiple compromised sources to create apparently consistent false evidence. Such operations induce an adversarial evidence stream
 \begin{align}
-\label{eq-action-reliability}
-\begin{split}
-p_{succ}(a,r_c)\leftarrow &(1-\beta)p_{succ}(a,r_c)\\
-&+\beta\mathbb{I}\{\mathbf{y}_t\ \text{passes acceptance tests}\},
-\end{split}
+\label{eq-poisoned-evidence}
+\widetilde{\mathcal{Z}}_{0:t}=\mathcal{A}(\mathcal{Z}_{0:t}),
 \end{align}
-where $r_c$ denotes the relevant restoration context, such as a fault type, measurement-trust pattern, controller availability state, and cyber-route condition. This update turns the KG into an experience memory: a future task subgraph can retrieve which action paths previously restored load without violating constraints under a similar context.
+which can support false facts, suppress valid facts, replay stale availability, or poison restoration-outcome memory. We refer to these operations collectively as \emph{recovery knowledge poisoning}.
 
-\subsection{Task Subgraph and Semantic State}
-Given current evidence $\mathcal{F}_t$, KG-FedMARL extracts a $k$-hop task subgraph
+We adopt a strong-knowledge adversary: the attacker may know the system topology, ontology, recovery rules, evidence-scoring procedure, policy architecture, and public model parameters. Security therefore does not rely on algorithm secrecy. However, compromising one source does not allow the attacker to impersonate an uncompromised source. Source identities are authenticated, and the trusted ingestion point records $t^{r}_j$, so an attacker can replay an old authenticated message but cannot replace its provenance with that of an uncompromised source. The attack budget is characterized by
 \begin{align}
-\label{eq-task-subgraph}
-\mathcal{G}^{task}_t=(\mathcal{V}^{task}_t,\mathcal{E}^{task}_t)
+\label{eq-attack-budget}
+\mathcal{B}_{A}=\big(f_{p},B_{z},H_{A},\epsilon_{s}\big),
 \end{align}
-around the affected devices, unavailable cyber nodes, candidate restoration actions, and active constraints. Each node $v\in\mathcal{V}^{task}_t$ has a feature vector
-\begin{align}
-\label{eq-node-feature}
-\mathbf{x}_v=[\mathbf{e}^{type}_v,\mathbf{z}^{op}_v,p^{fault}_v,p^{succ}_v,\mathbf{z}^{time}_v],
-\end{align}
-where $\mathbf{e}^{type}_v$ encodes entity type, $\mathbf{z}^{op}_v$ stores normalized operating attributes, $p^{fault}_v$ is fault probability, $p^{succ}_v$ is historical action success rate when applicable, and $\mathbf{z}^{time}_v$ encodes temporal recency and duration.
+where $f_p$ bounds the number of compromised independent provenance groups, $B_z$ bounds manipulated evidence per decision window, $H_A$ is the attack duration, and $\epsilon_s$ bounds the magnitude of stealth-constrained continuous-data manipulation when applicable.
 
-A relation-aware graph-attention encoder maps the task subgraph into a global semantic vector. For relation $r_{uv}$ between nodes $u$ and $v$, the attention logit is
-\begin{align}
-\label{eq-rel-attention}
-e_{uv}^{\ell}=\text{LeakyReLU}\left(\mathbf{q}^{\ell\top}
-\left[\mathbf{W}^{\ell}\mathbf{h}_{u}^{\ell};\mathbf{W}^{\ell}\mathbf{h}_{v}^{\ell};\mathbf{W}_{r}^{\ell}\mathbf{r}_{uv}\right]\right),
-\end{align}
-and
-\begin{align}
-\label{eq-attention-normalize}
-\alpha_{uv}^{\ell}=\frac{\exp(e_{uv}^{\ell})}{\sum_{w\in\mathcal{N}(v)}\exp(e_{wv}^{\ell})}.
-\end{align}
-The node update is
-\begin{align}
-\label{eq-gat}
-\mathbf{h}_{v}^{\ell+1}=\sigma\left(\sum_{u\in\mathcal{N}(v)}\alpha_{uv}^{\ell}\mathbf{W}^{\ell}\mathbf{h}_{u}^{\ell}\right),
-\end{align}
-where $\mathbf{r}_{uv}$ encodes the relation type and confidence. A pooling operator then produces
-\begin{align}
-\label{eq-semantic-state}
-s_t=\text{POOL}\left(\{\mathbf{h}_{v}^{L}:v\in\mathcal{V}^{task}_t\}\right).
-\end{align}
-Each agent $i$ receives the augmented observation
-\begin{align}
-\label{eq-agent-state}
-\tilde{s}_t^i=[o_t^i;s_t],
-\end{align}
-which combines local device or feeder information with global cross-layer semantics.
+The trusted computing base consists of the authenticated and read-only semantic basis $\mathcal{T}^{0}$, the evidence-ingestion logic, the implementation of the belief-update mechanism, version management, the final physical safety verifier, and a certified fallback controller. These components may process adversarial inputs but are not assumed to be code-compromised. The runtime assertion layer $\mathcal{A}_t$ is explicitly untrusted until its beliefs are established from evidence. A learned surrogate feasibility model is non-authoritative: it may rank or reject candidates but cannot independently authorize field execution. The physical verifier is authoritative for invariant operating constraints and evaluates uncertain runtime states over a conservative state set rather than trusting a single potentially corrupted measurement.
+
+The coordinating/federated server, when used, is not part of the field-actuation trust root: it may coordinate model training but cannot bypass the local knowledge gate or the final physical verifier. Federated heterogeneity, shared encoders, personalized adapters, and aggregation rules are treated as implementation infrastructure rather than as the security contribution of this work.
+
+Under this model, the attacker's ultimate objective is not merely to change a graph attribute. It is to create a chain of influence from adversarial evidence to an incorrect recovery belief, from that belief to an erroneous action constraint, and potentially from repeated erroneous evidence to an unsafe policy update. Section~IV formalizes the admissibility, recovery, and propagation-control objectives, while Section~V specifies the mechanisms used to bound this influence.
