@@ -14,7 +14,7 @@ from typing import Iterable, List, Sequence, Tuple
 import numpy as np
 
 V_MIN, V_MAX = 0.90, 1.10
-N_BLOCKS = {"IEEE33": 8, "Radial69-env": 10, "IEEE123": 12, "IEEE8500": 14}
+N_BLOCKS = {"IEEE33": 8, "Radial69-env": 10, "IEEE123": 12, "IEEE8500": 32}
 N_AGENTS = {"IEEE33": 8, "Radial69-env": 10, "IEEE123": 12, "IEEE8500": 16}
 INITIAL_BLOCK_FRACTION = 0.35
 
@@ -135,6 +135,31 @@ class OpenDSSAdapter(BaseAdapter):
         self.load_kw = np.asarray(kws, dtype=float)
         self.blocks, self.block_kw = balanced_blocks(names, kws, n_blocks)
         self.enabled_blocks = set(range(len(self.blocks)))
+        self.verifier_calls = 0
+        self.safety_violations = 0
+
+    def initialize_partial(self, fraction: float = INITIAL_BLOCK_FRACTION) -> None:
+        if self.feeder != "IEEE8500":
+            super().initialize_partial(fraction)
+            return
+
+        # The 8500-node feeder is sensitive to coarse, globally balanced load
+        # blocks. Build the starting state through the same authoritative AC
+        # verifier used online instead of assuming that an arbitrary 35% block
+        # subset is feasible. Smaller 32-way blocks preserve enough decision
+        # granularity for a 24-step restoration horizon while avoiding the
+        # all-or-nothing 14-block behavior observed in the first stress test.
+        self.set_enabled_blocks(set())
+        target = max(0.0, min(1.0, float(fraction)))
+        order = np.argsort(self.block_kw)
+        for b in order:
+            ok, _ = self.try_restore(int(b))
+            if ok and self.served_ratio >= target - 1e-9:
+                break
+        if not self.enabled_blocks:
+            raise RuntimeError("IEEE8500: no AC-feasible initial restoration block")
+        # Initialization is part of scenario construction rather than online
+        # authorization, so do not charge its verifier calls to T_gate/results.
         self.verifier_calls = 0
         self.safety_violations = 0
 
