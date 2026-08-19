@@ -32,11 +32,12 @@ ABLATIONS = (
     "full", "no_provenance_cap", "no_forgetting", "no_semantic_gate",
     "no_transition_quarantine", "fixed_promotion_radius",
 )
+K_MAX_VERIFY = 8
 
 
-def choose_block(method: str, ablation: str, pending: Sequence[int], block_kw: np.ndarray,
-                 belief: np.ndarray, latest: np.ndarray, static_avail: np.ndarray,
-                 true_now: np.ndarray, logits: np.ndarray):
+def rank_blocks(method: str, ablation: str, pending: Sequence[int], block_kw: np.ndarray,
+                belief: np.ndarray, latest: np.ndarray, static_avail: np.ndarray,
+                true_now: np.ndarray, logits: np.ndarray):
     candidates = []
     for b in pending:
         if method == "Oracle-AC":
@@ -50,9 +51,13 @@ def choose_block(method: str, ablation: str, pending: Sequence[int], block_kw: n
         if ok:
             candidates.append(int(b))
     if not candidates:
-        return None
+        return []
     scale = max(1e-9, float(np.max(block_kw)))
-    return max(candidates, key=lambda b: float(block_kw[b]) / scale + 0.12 * float(logits[b]))
+    return sorted(
+        candidates,
+        key=lambda b: float(block_kw[b]) / scale + 0.12 * float(logits[b]),
+        reverse=True,
+    )
 
 
 def run_episode(adapter, seed: int, method: str, attack_level: str, ablation: str = "full"):
@@ -91,41 +96,52 @@ def run_episode(adapter, seed: int, method: str, attack_level: str, ablation: st
         if had_pending:
             decision_opportunities += 1
         tg = time.perf_counter()
-        action = choose_block(method, ablation, pending, adapter.block_kw, pA, latestA,
-                              static_avail, schedule[step], logits_a)
+        candidates = rank_blocks(method, ablation, pending, adapter.block_kw, pA, latestA,
+                                 static_avail, schedule[step], logits_a)
+        ref_candidates = rank_blocks("KG-FedMARL", "full", pending, adapter.block_kw,
+                                     p0, latest0, static_avail, schedule[step], logits_0)
         latency = (time.perf_counter() - tg) * 1000.0
-        ref_action = choose_block("KG-FedMARL", "full", pending, adapter.block_kw, p0, latest0,
-                                  static_avail, schedule[step], logits_0)
+        ref_action = ref_candidates[0] if ref_candidates else None
 
-        restored = false = False
-        if action is None:
-            # Once all restoration blocks have been completed there is no
-            # decision opportunity and therefore no fallback event.
+        restored = False
+        false_seen = False
+        action = None
+        if not candidates:
             if had_pending:
                 fallbacks += 1
         else:
-            attempts += 1
-            if not bool(schedule[step, action]):
-                # Ground truth is used here only to score semantic false
-                # authorization in the experiment harness; the invalid action is
-                # not committed to the physical simulator.
-                false_auth += 1; fallbacks += 1; false = True
-            else:
-                ok, physical_ms = adapter.try_restore(action)
+            # Algorithm 2 authorizes a bounded ranked candidate set rather than
+            # failing after the first physically infeasible proposal. Try at
+            # most K_MAX_VERIFY candidates and keep the exact AC solver as the
+            # final authority for every executable candidate.
+            for cand in candidates[:K_MAX_VERIFY]:
+                if action is None:
+                    action = int(cand)
+                attempts += 1
+                if not bool(schedule[step, cand]):
+                    # Ground truth is used only for experimental scoring of a
+                    # semantic false authorization; it is not exposed to the
+                    # recovery policy or belief updater.
+                    false_auth += 1
+                    false_seen = True
+                    continue
+                ok, physical_ms = adapter.try_restore(cand)
                 latency += physical_ms
                 if ok:
+                    action = int(cand)
                     restored = True
-                    if action in pending:
-                        pending.remove(action)
-                else:
-                    fallbacks += 1
+                    if cand in pending:
+                        pending.remove(cand)
+                    break
+            if not restored:
+                fallbacks += 1
         if had_pending:
             latencies.append(latency)
 
         trust = float(pA[action]) if action is not None else 0.5
-        if false:
+        if false_seen and not restored:
             trust *= 0.35
-        reward = 1.0 if restored else (-0.60 if false else -0.15)
+        reward = 1.0 if restored else (-0.60 if false_seen else -0.15)
         logits_a = update_policy(
             logits_a, action, reward, trust,
             quarantine=ablation != "no_transition_quarantine",
@@ -215,7 +231,8 @@ def main():
             print("baseline", method, seed, flush=True)
             m = run_one("IEEE33", seed, method, "medium", "full", env_root, odss)
             append_row(out, make_row(seed, "IEEE33", method, "full", "medium", m,
-                                     args.source_commit, "common priority candidate policy + exact AC verifier"),
+                                     args.source_commit,
+                                     f"ranked K_max={K_MAX_VERIFY} candidate gate + exact AC verifier"),
                        require_final_metrics=True)
 
     for level in ("none", "low", "high"):
@@ -233,8 +250,13 @@ def main():
                                      args.source_commit), require_final_metrics=True)
 
     for feeder in ("Radial69-env", "IEEE123", "IEEE8500"):
-        note = ("supplied programmatic 69-bus radial benchmark" if feeder == "Radial69-env"
-                else "canonical OpenDSS test feeder at pinned upstream commit")
+        if feeder == "Radial69-env":
+            note = "supplied programmatic 69-bus radial benchmark"
+        elif feeder == "IEEE8500":
+            note = (f"canonical OpenDSS test feeder; 32 AC-feasible restoration blocks; "
+                    f"ranked K_max={K_MAX_VERIFY} exact-verifier search")
+        else:
+            note = "canonical OpenDSS test feeder at pinned upstream commit"
         for seed in seeds:
             print("scale", feeder, seed, flush=True)
             m = run_one(feeder, seed, "KG-FedMARL", "medium", "full", env_root, odss)
