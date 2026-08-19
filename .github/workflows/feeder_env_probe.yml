@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/feeder_env_probe.yml'
       - 'manuscript/figures/Code/kgfedmarl_env.zip'
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
