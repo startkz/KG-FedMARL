@@ -1,4 +1,5 @@
 name: Feeder-level recovery experiments
+# Rerun note: IEEE8500 uses 32 AC-feasible blocks and bounded K_max candidate verification.
 
 on:
   push:
