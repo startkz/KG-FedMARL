@@ -39,6 +39,14 @@ jobs:
           cd Distrib/IEEETestCases/123Bus
           cp -f IEEELineCodes.DSS IEEELinecodes.DSS
           if [ -f BusCoords.dat ]; then cp -f BusCoords.dat Buscoords.dat; fi
+          cd ../8500-Node
+          # The reference master files were authored on a case-insensitive
+          # platform.  Preserve the source files and add lowercase-extension
+          # aliases required by the redirects when running on Linux.
+          for f in *.DSS; do
+            [ -e "$f" ] || continue
+            cp -f "$f" "${f%.DSS}.dss"
+          done
           echo "$OPENDSS_COMMIT" > /tmp/opendss_commit.txt
 
       - name: Run five-seed feeder experiments
