@@ -19,6 +19,7 @@ $\mathcal{P}_t$ & Evidence-provenance dependency graph \\
 $\mathcal{Z}_t$ & Evidence-event set received at time $t$ \\
 $\mathcal{S}_{E}$ & Set of evidence sources \\
 $\mathcal{S}_{A}$ & Adversary-controlled evidence sources \\
+$\Omega_A$ & Adversarial evidence budget \\
 \bottomrule[1.5pt]
 \end{tabular}
 \end{table}
@@ -99,14 +100,14 @@ We consider an attacker whose objective is to corrupt the recovery knowledge pla
 denote the controlled sources. For a compromised source, the attacker may fabricate, suppress, delay, replay, or modify evidence, manipulate the source-reported event time and confidence, and coordinate multiple compromised sources to create apparently consistent false evidence. Such operations induce an adversarial evidence stream
 \begin{align}
 \label{eq-poisoned-evidence}
-\widetilde{\mathcal{Z}}_{0:t}=\mathcal{A}(\mathcal{Z}_{0:t}),
+\widetilde{\mathcal{Z}}_{0:t}=\mathscr{A}(\mathcal{Z}_{0:t}),
 \end{align}
 which can support false facts, suppress valid facts, replay stale availability, or poison restoration-outcome memory. We refer to these operations collectively as \emph{recovery knowledge poisoning}.
 
 We adopt a strong-knowledge adversary: the attacker may know the system topology, ontology, recovery rules, evidence-scoring procedure, policy architecture, and public model parameters. Security therefore does not rely on algorithm secrecy. However, compromising one source does not allow the attacker to impersonate an uncompromised source. Source identities are authenticated, and the trusted ingestion point records $t^{r}_j$, so an attacker can replay an old authenticated message but cannot replace its provenance with that of an uncompromised source. The attack budget is characterized by
 \begin{align}
 \label{eq-attack-budget}
-\mathcal{B}_{A}=\big(f_{p},B_{z},H_{A},\epsilon_{s}\big),
+\Omega_A=\big(f_{p},B_{z},H_{A},\epsilon_{s}\big),
 \end{align}
 where $f_p$ bounds the number of compromised independent provenance groups, $B_z$ bounds manipulated evidence per decision window, $H_A$ is the attack duration, and $\epsilon_s$ bounds the magnitude of stealth-constrained continuous-data manipulation when applicable.
 
