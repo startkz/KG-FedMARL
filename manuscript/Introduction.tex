@@ -16,13 +16,8 @@ Knowledge graphs (KGs) provide a useful representation layer for exposing cyber-
 This paper studies this attack surface as \emph{recovery knowledge poisoning}. The central concern is the propagation path
 \begin{align}
 \label{eq-intro-propagation}
-\text{adversarial evidence}
-\rightarrow
-\text{recovery knowledge}
-\rightarrow
-\text{action authority}
-\rightarrow
-\text{online policy}.
+&\text{adversarial evidence}\rightarrow\text{recovery knowledge}\nonumber\\
+&\qquad\rightarrow\text{action authority}\rightarrow\text{online policy}.
 \end{align}
 A fabricated controller-availability report, for example, may raise the belief that a remote switching action is executable; repeated poisoned outcomes may then enter replay memory and gradually bias the deployed policy even after the original report has disappeared. Anomaly detection, safety filtering, and federated learning address different parts of this pipeline; unless the trustworthiness of the information passed between them is explicitly modeled or verified, none by itself provides a bound on the complete knowledge-to-authorization-to-learning propagation path. The security objective is therefore not to assume that online knowledge is correct, but to ensure that bounded evidence compromise causes only bounded distortion of the recovery state and bounded influence on control and learning.
 

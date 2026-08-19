@@ -164,10 +164,10 @@ The second propagation path arises when a transition collected under poisoned kn
 For the assertions referenced by its authorization record, define the belief-support term
 \begin{align}
 \label{eq-transition-belief-trust}
-\Gamma_B(\tau_t)=
+\Gamma_B(\tau_t)&=
 \exp\left(\sum_{q\in\mathcal{Q}(\tau_t)}\varpi_q
-\log\big(\max\{b_t(q),\epsilon_0\}\big)\right),
-\qquad \sum_q\varpi_q=1.
+\log\big(\max\{b_t(q),\epsilon_0\}\big)\right),\nonumber\\
+&\qquad \sum_q\varpi_q=1.
 \end{align}
 Let $\Gamma_P,\Gamma_C,\Gamma_O\in[0,1]$ denote independent-provenance coverage, evidence completeness, and independently verified outcome consistency. The transition trust score is
 \begin{align}
@@ -192,8 +192,8 @@ The deployed policy $\Pi^{stable}$ is never overwritten directly. An adaptation 
 \begin{align}
 \label{eq-trust-kl-metric}
 D_{\rm KL}^{audit}(\Pi^{cand},\Pi^{stable})
-=\frac{1}{N}\sum_{i=1}^{N}\mathbb{E}_{\iota\sim\mu^{\rm audit}}
-\left[D_{\rm KL}\!\left(\pi_i^{cand}(\cdot\mid\iota)\|\pi_i^{stable}(\cdot\mid\iota)\right)\right].
+&=\frac{1}{N}\sum_{i=1}^{N}\mathbb{E}_{\iota\sim\mu^{\rm audit}}\nonumber\\
+&\quad\left[D_{\rm KL}\!\left(\pi_i^{cand}(\cdot\mid\iota)\|\pi_i^{stable}(\cdot\mid\iota)\right)\right].
 \end{align}
 The candidate must satisfy
 \begin{align}
@@ -239,8 +239,8 @@ Because adaptation occurs once every $H_\pi$ control intervals, the amortized ad
 The resulting online chain is
 \begin{align}
 \label{eq-end-to-end-chain}
-\text{Evidence}\rightarrow\mathcal{G}_t^B\rightarrow\mathbb{U}_t^{adm}
-\rightarrow\mathbf{a}_t^{exec}\rightarrow\text{Verified Outcome}
-\rightarrow\Pi^{cand}\rightarrow\Pi^{stable}.
+&\text{Evidence}\rightarrow\mathcal{G}_t^B\rightarrow\mathbb{U}_t^{adm}
+\rightarrow\mathbf{a}_t^{exec}\nonumber\\
+&\qquad\rightarrow\text{Verified Outcome}\rightarrow\Pi^{cand}\rightarrow\Pi^{stable}.
 \end{align}
 Failure at a trust boundary reduces functionality, delays adaptation, or invokes fallback; it does not create an alternate path around the authoritative verifier.
