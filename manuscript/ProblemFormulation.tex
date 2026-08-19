@@ -26,7 +26,7 @@ a_{i,t}\sim\pi_i(\cdot\mid\iota_{i,t}),
 \end{align}
 and the joint candidate action is $\mathbf{a}_t=(a_{1,t},\ldots,a_{N,t})$.
 
-The adversary affects decision making indirectly by manipulating admissible evidence streams within the budget $\mathcal{B}_{A}$ in Eq.~\ref{eq-attack-budget}. Thus the observation and knowledge processes are attack dependent, whereas the physical transition kernel remains governed by the PCPS dynamics in Eq.~\ref{eq-system-transition}. This distinction is important: the security problem is not merely to tolerate exogenous state disturbances, but to prevent corrupted observations from becoming trusted recovery knowledge and then executable control authority.
+The adversary affects decision making indirectly by manipulating admissible evidence streams within the budget $\Omega_A$ in Eq.~\ref{eq-attack-budget}. Thus the observation and knowledge processes are attack dependent, whereas the physical transition kernel remains governed by the PCPS dynamics in Eq.~\ref{eq-system-transition}. This distinction is important: the security problem is not merely to tolerate exogenous state disturbances, but to prevent corrupted observations from becoming trusted recovery knowledge and then executable control authority.
 
 \subsection{Risk-Aware Action Admissibility}
 \label{subsec-risk-admissibility}
@@ -102,10 +102,10 @@ R_t=
 \end{align}
 where $C^{\rm shed}_t$, $C^{\rm op}_t$, $C^{\rm cyber}_t$, and $C^{\rm fb}_t$ denote critical-load curtailment, switching/dispatch cost, cyber-resource recovery cost, and fallback-service loss, respectively.
 
-Let $\mathfrak{A}(\mathcal{B}_{A})$ denote the set of adversaries satisfying the capability and budget assumptions in Section~\ref{subsec-threat-model}. We seek a recovery policy and online belief-update rule that maximize worst-case expected recovery performance,
+Let $\mathfrak{A}(\Omega_A)$ denote the set of adversaries satisfying the capability and budget assumptions in Section~\ref{subsec-threat-model}. We seek a recovery policy and online belief-update rule that maximize worst-case expected recovery performance,
 \begin{align}
 \label{eq-minimax-objective}
-\max_{\Pi,F_B}\ \inf_{\mathscr{A}\in\mathfrak{A}(\mathcal{B}_{A})}
+\max_{\Pi,F_B}\ \inf_{\mathscr{A}\in\mathfrak{A}(\Omega_A)}
 \mathbb{E}_{\mathscr{A}}
 \left[\sum_{t=0}^{T}\gamma^t R_t\right],
 \end{align}
@@ -143,12 +143,12 @@ The first objective is the existence of a finite attack-budget-dependent bound
 \label{eq-bounded-belief-distortion}
 \sup_{t\le T}
 D_B(\mathcal{B}^{A}_t,\mathcal{B}^{0}_t)
-\le \varepsilon_B(\mathcal{B}_{A}).
+\le \varepsilon_B(\Omega_A).
 \end{align}
 This rules out unbounded accumulation of influence from a bounded number of compromised provenance groups.
 
 \emph{2) Bounded false authorization.}
-Let $\mathbb{U}^{\star}_t$ denote the action set that would be semantically admissible if the ground-truth values $q_t^{\star}$ of all prerequisites were known. A false authorization occurs when an action is admitted by the online belief state but is not contained in $\mathbb{U}^{\star}_t$. We require
+Let $\mathbb{U}^{\star}_t$ denote the ground-truth admissible action set that satisfies both the true runtime prerequisites $q_t^{\star}$ and the invariant engineering constraints. A false authorization occurs when an action is admitted by the online belief state but is not contained in $\mathbb{U}^{\star}_t$. We require
 \begin{align}
 \label{eq-false-authorization-bound}
 \Pr\left(
@@ -193,7 +193,7 @@ where $\mu_t$ is the task-relevant information-state distribution. The required 
 \begin{align}
 \label{eq-policy-propagation-bound}
 D_{\pi}(\Pi^{A}_t,\Pi^{0}_t)
-\le\varepsilon_{\pi}(\mathcal{B}_{A}).
+\le\varepsilon_{\pi}(\Omega_A).
 \end{align}
 The mechanism in Section~V enforces this objective by separating fast knowledge updates from slower trust-gated policy adaptation, so that a newly inserted or uncertain KG assertion cannot immediately alter the deployed recovery policy.
 
