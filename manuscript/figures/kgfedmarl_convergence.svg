@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="520" height="285" viewBox="0 0 520 285">
+<rect width="100%" height="100%" fill="white"/>
+<line x1="62.00" y1="237.00" x2="402.00" y2="237.00" stroke="rgb(0,0,0)" stroke-width="0.80" stroke-linecap="round"/>
+<line x1="62.00" y1="237.00" x2="62.00" y2="32.00" stroke="rgb(0,0,0)" stroke-width="0.80" stroke-linecap="round"/>
+<line x1="62.00" y1="237.00" x2="402.00" y2="237.00" stroke="rgb(209,214,219)" stroke-width="0.35" stroke-linecap="round"/>
+<text x="54.00" y="240.00" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="end">45</text>
+<line x1="62.00" y1="134.50" x2="402.00" y2="134.50" stroke="rgb(209,214,219)" stroke-width="0.35" stroke-linecap="round"/>
+<text x="54.00" y="137.50" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="end">72.5</text>
+<line x1="62.00" y1="32.00" x2="402.00" y2="32.00" stroke="rgb(209,214,219)" stroke-width="0.35" stroke-linecap="round"/>
+<text x="54.00" y="35.00" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="end">100</text>
+<text x="62.00" y="253.00" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="middle">0</text>
+<text x="130.00" y="253.00" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="middle">200</text>
+<text x="198.00" y="253.00" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="middle">400</text>
+<text x="266.00" y="253.00" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="middle">600</text>
+<text x="334.00" y="253.00" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="middle">800</text>
+<text x="402.00" y="253.00" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="middle">1000</text>
+<text x="232.00" y="266.00" font-family="Times New Roman, Times, serif" font-size="9.5" font-weight="400" fill="rgb(26,26,26)" text-anchor="middle">Episode</text>
+<text x="0" y="0" transform="translate(19.00,134.50) rotate(-90.00)" font-family="Times New Roman, Times, serif" font-size="9.5" font-weight="400" fill="rgb(26,26,26)">Recovery accuracy (%)</text>
+<polyline points="62.00,173.64 70.50,157.71 79.00,141.83 87.50,125.76 96.00,109.44 104.50,99.89 113.00,88.90 121.50,79.88 130.00,70.26 138.50,64.04 147.00,60.63 155.50,54.58 164.00,50.28 172.50,49.97 181.00,46.04 189.50,40.70 198.00,37.55 206.50,38.46 215.00,38.89 223.50,39.24 232.00,41.39 240.50,40.29 249.00,38.28 257.50,36.30 266.00,37.74 274.50,38.74 283.00,38.53 291.50,39.68 300.00,39.47 308.50,37.91 317.00,37.88 325.50,37.52 334.00,37.53 342.50,37.99 351.00,37.63 359.50,37.60 368.00,37.90 376.50,37.64 385.00,37.67 393.50,37.65 402.00,37.59" fill="none" stroke="rgb(26,89,148)" stroke-width="1.80" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="62.00" cy="173.64" r="2.20" fill="rgb(26,89,148)"/>
+<circle cx="130.00" cy="70.26" r="2.20" fill="rgb(26,89,148)"/>
+<circle cx="198.00" cy="37.55" r="2.20" fill="rgb(26,89,148)"/>
+<circle cx="266.00" cy="37.74" r="2.20" fill="rgb(26,89,148)"/>
+<circle cx="334.00" cy="37.53" r="2.20" fill="rgb(26,89,148)"/>
+<circle cx="402.00" cy="37.59" r="2.20" fill="rgb(26,89,148)"/>
+<polyline points="62.00,218.36 70.50,211.41 79.00,206.07 87.50,199.02 96.00,188.76 104.50,186.89 113.00,171.28 121.50,179.88 130.00,170.38 138.50,173.36 147.00,163.37 155.50,145.09 164.00,141.01 172.50,137.78 181.00,134.86 189.50,128.43 198.00,110.95 206.50,110.72 215.00,106.92 223.50,98.77 232.00,103.36 240.50,94.76 249.00,91.92 257.50,97.49 266.00,101.05 274.50,103.75 283.00,100.79 291.50,100.80 300.00,97.99 308.50,93.61 317.00,90.89 325.50,93.04 334.00,88.02 342.50,85.25 351.00,84.16 359.50,84.49 368.00,82.94 376.50,81.78 385.00,81.52 393.50,81.22 402.00,80.45" fill="none" stroke="rgb(178,107,87)" stroke-width="1.15" stroke-dasharray="4 2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="62.00" cy="218.36" r="1.80" fill="rgb(178,107,87)"/>
+<circle cx="130.00" cy="170.38" r="1.80" fill="rgb(178,107,87)"/>
+<circle cx="198.00" cy="110.95" r="1.80" fill="rgb(178,107,87)"/>
+<circle cx="266.00" cy="101.05" r="1.80" fill="rgb(178,107,87)"/>
+<circle cx="334.00" cy="88.02" r="1.80" fill="rgb(178,107,87)"/>
+<circle cx="402.00" cy="80.45" r="1.80" fill="rgb(178,107,87)"/>
+<polyline points="62.00,210.91 70.50,203.10 79.00,196.21 87.50,186.89 96.00,175.32 104.50,170.58 113.00,165.93 121.50,162.37 130.00,157.04 138.50,148.24 147.00,137.01 155.50,128.39 164.00,121.72 172.50,118.63 181.00,107.64 189.50,101.27 198.00,101.93 206.50,107.45 215.00,102.85 223.50,100.46 232.00,95.61 240.50,94.71 249.00,77.30 257.50,77.15 266.00,73.37 274.50,69.82 283.00,70.86 291.50,69.08 300.00,69.87 308.50,69.24 317.00,68.34 325.50,71.46 334.00,68.37 342.50,69.34 351.00,68.89 359.50,67.76 368.00,65.69 376.50,64.68 385.00,64.51 393.50,63.96 402.00,63.68" fill="none" stroke="rgb(194,148,87)" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="62.00" cy="210.91" r="1.80" fill="rgb(194,148,87)"/>
+<circle cx="130.00" cy="157.04" r="1.80" fill="rgb(194,148,87)"/>
+<circle cx="198.00" cy="101.93" r="1.80" fill="rgb(194,148,87)"/>
+<circle cx="266.00" cy="73.37" r="1.80" fill="rgb(194,148,87)"/>
+<circle cx="334.00" cy="68.37" r="1.80" fill="rgb(194,148,87)"/>
+<circle cx="402.00" cy="63.68" r="1.80" fill="rgb(194,148,87)"/>
+<polyline points="62.00,199.73 70.50,189.70 79.00,180.37 87.50,170.97 96.00,160.40 104.50,153.16 113.00,141.18 121.50,132.28 130.00,120.25 138.50,120.07 147.00,109.67 155.50,104.55 164.00,97.67 172.50,97.09 181.00,94.86 189.50,91.13 198.00,84.78 206.50,82.76 215.00,78.39 223.50,72.77 232.00,74.11 240.50,68.14 249.00,63.52 257.50,63.54 266.00,64.91 274.50,67.04 283.00,66.78 291.50,61.27 300.00,56.81 308.50,57.56 317.00,55.37 325.50,55.40 334.00,54.14 342.50,54.16 351.00,52.37 359.50,52.02 368.00,51.66 376.50,51.44 385.00,51.41 393.50,50.98 402.00,50.64" fill="none" stroke="rgb(107,138,189)" stroke-width="1.15" stroke-dasharray="4 2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="62.00" cy="199.73" r="1.80" fill="rgb(107,138,189)"/>
+<circle cx="130.00" cy="120.25" r="1.80" fill="rgb(107,138,189)"/>
+<circle cx="198.00" cy="84.78" r="1.80" fill="rgb(107,138,189)"/>
+<circle cx="266.00" cy="64.91" r="1.80" fill="rgb(107,138,189)"/>
+<circle cx="334.00" cy="54.14" r="1.80" fill="rgb(107,138,189)"/>
+<circle cx="402.00" cy="50.64" r="1.80" fill="rgb(107,138,189)"/>
+<polyline points="62.00,196.00 70.50,185.05 79.00,173.53 87.50,161.98 96.00,149.17 104.50,142.60 113.00,134.06 121.50,121.73 130.00,108.08 138.50,106.69 147.00,99.78 155.50,90.29 164.00,84.82 172.50,84.01 181.00,81.90 189.50,78.14 198.00,71.58 206.50,68.00 215.00,67.40 223.50,62.97 232.00,58.86 240.50,60.08 249.00,62.19 257.50,61.22 266.00,59.35 274.50,57.17 283.00,52.99 291.50,50.01 300.00,48.90 308.50,46.81 317.00,46.52 325.50,47.21 334.00,47.21 342.50,48.09 351.00,47.05 359.50,46.68 368.00,47.26 376.50,47.32 385.00,46.73 393.50,46.44 402.00,46.16" fill="none" stroke="rgb(138,125,178)" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="62.00" cy="196.00" r="1.80" fill="rgb(138,125,178)"/>
+<circle cx="130.00" cy="108.08" r="1.80" fill="rgb(138,125,178)"/>
+<circle cx="198.00" cy="71.58" r="1.80" fill="rgb(138,125,178)"/>
+<circle cx="266.00" cy="59.35" r="1.80" fill="rgb(138,125,178)"/>
+<circle cx="334.00" cy="47.21" r="1.80" fill="rgb(138,125,178)"/>
+<circle cx="402.00" cy="46.16" r="1.80" fill="rgb(138,125,178)"/>
+<polyline points="62.00,188.55 70.50,176.67 79.00,164.98 87.50,152.21 96.00,139.97 104.50,126.30 113.00,114.65 121.50,106.87 130.00,96.53 138.50,93.87 147.00,86.94 155.50,84.26 164.00,82.28 172.50,80.56 181.00,77.71 189.50,72.69 198.00,67.55 206.50,64.38 215.00,56.73 223.50,63.29 232.00,60.82 240.50,60.22 249.00,57.92 257.50,56.37 266.00,53.16 274.50,54.15 283.00,54.29 291.50,51.70 300.00,50.93 308.50,48.62 317.00,47.94 325.50,47.64 334.00,48.02 342.50,47.32 351.00,47.38 359.50,46.31 368.00,46.58 376.50,46.49 385.00,46.27 393.50,46.23 402.00,46.16" fill="none" stroke="rgb(69,140,115)" stroke-width="1.15" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="62.00" cy="188.55" r="1.80" fill="rgb(69,140,115)"/>
+<circle cx="130.00" cy="96.53" r="1.80" fill="rgb(69,140,115)"/>
+<circle cx="198.00" cy="67.55" r="1.80" fill="rgb(69,140,115)"/>
+<circle cx="266.00" cy="53.16" r="1.80" fill="rgb(69,140,115)"/>
+<circle cx="334.00" cy="48.02" r="1.80" fill="rgb(69,140,115)"/>
+<circle cx="402.00" cy="46.16" r="1.80" fill="rgb(69,140,115)"/>
+<polyline points="62.00,192.27 70.50,180.49 79.00,168.12 87.50,156.11 96.00,144.49 104.50,135.30 113.00,124.10 121.50,116.43 130.00,107.12 138.50,98.93 147.00,93.31 155.50,88.52 164.00,87.65 172.50,82.51 181.00,77.73 189.50,70.97 198.00,67.45 206.50,69.03 215.00,70.21 223.50,66.03 232.00,63.83 240.50,63.12 249.00,62.43 257.50,64.30 266.00,61.82 274.50,59.58 283.00,57.21 291.50,55.81 300.00,53.20 308.50,51.29 317.00,50.64 325.50,51.17 334.00,50.84 342.50,51.80 351.00,52.81 359.50,51.81 368.00,50.09 376.50,49.94 385.00,50.11 393.50,49.97 402.00,49.89" fill="none" stroke="rgb(158,122,173)" stroke-width="1.15" stroke-dasharray="4 2" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="62.00" cy="192.27" r="1.80" fill="rgb(158,122,173)"/>
+<circle cx="130.00" cy="107.12" r="1.80" fill="rgb(158,122,173)"/>
+<circle cx="198.00" cy="67.45" r="1.80" fill="rgb(158,122,173)"/>
+<circle cx="266.00" cy="61.82" r="1.80" fill="rgb(158,122,173)"/>
+<circle cx="334.00" cy="50.84" r="1.80" fill="rgb(158,122,173)"/>
+<circle cx="402.00" cy="49.89" r="1.80" fill="rgb(158,122,173)"/>
+<rect x="408.00" y="29.00" width="96.00" height="113.00" fill="rgb(255,255,255)" stroke="rgb(209,214,219)" stroke-width="0.40"/>
+<rect x="416.00" y="36.00" width="8.00" height="5.00" fill="rgb(26,89,148)"/>
+<text x="428.00" y="40.00" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="start">KG-FedMARL</text>
+<rect x="416.00" y="51.00" width="8.00" height="5.00" fill="rgb(178,107,87)"/>
+<text x="428.00" y="55.00" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="start">DQN</text>
+<rect x="416.00" y="66.00" width="8.00" height="5.00" fill="rgb(194,148,87)"/>
+<text x="428.00" y="70.00" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="start">PPO</text>
+<rect x="416.00" y="81.00" width="8.00" height="5.00" fill="rgb(107,138,189)"/>
+<text x="428.00" y="85.00" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="start">MAPPO</text>
+<rect x="416.00" y="96.00" width="8.00" height="5.00" fill="rgb(138,125,178)"/>
+<text x="428.00" y="100.00" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="start">HAPPO</text>
+<rect x="416.00" y="111.00" width="8.00" height="5.00" fill="rgb(69,140,115)"/>
+<text x="428.00" y="115.00" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="start">Graph-RL</text>
+<rect x="416.00" y="126.00" width="8.00" height="5.00" fill="rgb(158,122,173)"/>
+<text x="428.00" y="130.00" font-family="Times New Roman, Times, serif" font-size="8.0" font-weight="400" fill="rgb(26,26,26)" text-anchor="start">KG-DQN</text>
+</svg>
