@@ -1,0 +1,114 @@
+%\documentclass[10pt,journal,compsoc]{IEEEtran}
+%\ifCLASSOPTIONcompsoc
+%  \usepackage[nocompress]{cite}
+%\else
+%  \usepackage{cite}
+%\fi
+
+\documentclass[letterpaper,journal,10pt]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts,amsthm}
+\usepackage[linesnumbered,ruled,vlined]{algorithm2e}
+\usepackage{algorithmic}
+%\usepackage{algpseudocode}
+%\usepackage{algorithmicx}
+%\usepackage{algorithmic}
+%\usepackage{algorithm}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{epstopdf}
+\usepackage{multicol}
+\usepackage{multirow}
+\usepackage{subfigure}
+\usepackage{booktabs}
+
+\usepackage{mathtools}
+\usepackage{amsfonts}
+\usepackage{bm}
+\usepackage{cases}
+\usepackage{array}
+\usepackage{listings}
+\usepackage{longtable}
+\usepackage{indentfirst}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{placeins}
+%\usepackage{subfig}
+\usepackage{threeparttable}
+\usepackage{verbatim}
+\usepackage{svg}
+\usepackage{ragged2e}
+
+\usepackage{tikz}
+\usetikzlibrary{mindmap,trees,positioning,arrows.meta}
+\usepackage{verbatim}
+\usepackage{CJK}
+\usepackage{makecell}
+
+\usepackage[hidelinks]{hyperref}
+\hypersetup{colorlinks=true,
+	allcolors=black,
+	pdfstartview=Fit,
+	breaklinks=true,
+    urlcolor=blue}
+
+\newtheorem{definition}{Definition}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{proposition}{Proposition}
+\newtheorem{assumption}{Assumption}
+\newtheorem{problem}{Problem}
+\newtheorem{observation}{Observation}
+\newtheorem{strategy}{Strategy}
+\newtheorem{scenario}{Scenario}
+
+\hyphenation{op-tical net-works semi-conduc-tor}
+\geometry{letterpaper,scale=0.9}
+\setlength{\textfloatsep}{7pt plus 1pt minus 2pt}
+\setlength{\floatsep}{7pt plus 1pt minus 2pt}
+\setlength{\intextsep}{7pt plus 1pt minus 2pt}
+\renewcommand{\topfraction}{0.95}
+\renewcommand{\bottomfraction}{0.95}
+\renewcommand{\textfraction}{0.05}
+\renewcommand{\floatpagefraction}{0.85}
+\setcounter{topnumber}{3}
+\setcounter{bottomnumber}{2}
+\setcounter{totalnumber}{5}
+\makeatletter
+\setlength{\@fptop}{0pt}
+\setlength{\@fpsep}{10pt plus 1pt minus 1pt}
+\setlength{\@fpbot}{0pt plus 1fil}
+\makeatother
+
+
+
+
+\begin{document}
+
+\input{Abstract.tex}
+\input{Introduction.tex}
+\input{RelatedWork.tex}
+\input{SystemModel.tex}
+\input{ProblemFormulation.tex}
+\input{MU2MV-Framework.tex}
+%\input{DRQL.tex}
+\input{Experimental-RPDRQL.tex}
+\FloatBarrier
+\input{Conclution.tex}
+\input{Acknowledgments.tex}
+
+\bibliography{ref}{}
+\bibliographystyle{unsrt}
+
+% Author biographies are retained in Shortbios.tex but excluded from the submission manuscript.
+%\input{Shortbios.tex}
+
+\cleardoublepage
+\appendices
+\input{TheoreticalAnalysis.tex}
+
+\end{document}
+\endinput
