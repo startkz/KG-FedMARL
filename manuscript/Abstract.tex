@@ -1,0 +1,34 @@
+\title{KG-FedMARL: Knowledge-Guided Federated Multi-Agent Reinforcement Learning for Resilient Restoration of Power Cyber-Physical Systems\\
+}
+\author{
+        Kai~Zhong,
+        Zhibang~Yang,
+        Siyang~Yu,
+        Kenli~Li,~\IEEEmembership{Senior Member,~IEEE}
+\IEEEcompsocitemizethanks
+{
+\IEEEcompsocthanksitem Kai Zhong and Kenli Li are with the College of Computer Science and Electronic Engineering, Hunan University, Changsha 410082, China.
+\IEEEcompsocthanksitem Zhibang Yang is with the Hunan Province Key Laboratory of Industrial Internet Technology and Security, Changsha University, Changsha 410022, China.
+\IEEEcompsocthanksitem Siyang Yu is with the College of Information Technology and Management, Hunan University of Finance and Economics, Changsha 410000, China.
+\protect\\ E-mail: startkz@hnu.edu.cn, yangzhibang2006@126.com, yusiyang@hufe.edu.cn, lkl@hnu.edu.cn.
+}%
+\thanks{Manuscript received ****, 2026; revised ****, 2026.}
+}
+
+\markboth{IEEE TRANSACTIONS ON DEPENDABLE AND SECURE COMPUTING,~Vol.~*, No.~*, *~2026}%
+{Zhong \MakeLowercase{\textit{et al.}}: KG-FedMARL: Knowledge-Guided Federated Multi-Agent Reinforcement Learning for Resilient Restoration of Power CPSs}
+
+\IEEEtitleabstractindextext{
+\begin{abstract}
+\justifying{Restoration in a power cyber-physical system is constrained by more than the post-fault electrical topology. It also depends on controller availability, measurement-path reliability, and the degree to which a restoration command matches the current cyber-physical state. Existing restoration methods commonly represent these dependencies by fixed coupling matrices or by annotations attached to a power-flow model, which makes the dependencies difficult to update and reuse during sequential decision-making. This paper proposes KG-FedMARL, a knowledge-guided federated multi-agent reinforcement-learning framework for resilient restoration of power cyber-physical systems. KG-FedMARL first constructs a dynamic heterogeneous knowledge graph that represents operating states, encodes rule priors and physical constraints, and stores historical restoration experience. Fault and attack evidence is converted into graph operations on timestamped entities, relations, and attributes; a relation-aware graph-attention encoder then maps the disturbed task subgraph to a semantic state vector. Restoration agents use this state to generate local actions, including switching, load transfer, microgrid support, and communication repair. A three-level safety filter prunes impossible actions by graph rules, screens remaining candidates with a fast surrogate model, and applies exact physical feasibility checks only to a small candidate set. Finally, an asynchronous federated optimizer trains heterogeneous substations, microgrids, and edge controllers without centralizing raw operational traces. The aggregation is block-wise and delay-aware: shared encoders are aggregated across compatible clients, role-specific action heads are aggregated only within their action role or distilled through task-subgraph probes, and stale updates are down-weighted according to policy and graph-state delay. The evaluation protocol is organized around IEEE 33-bus, 69-bus, 123-node, 8500-node, and regional-grid cases, covering physical faults, DER outages, communication failures, FDI, DoS, and protection misoperation.}
+\end{abstract}
+
+\begin{IEEEkeywords}
+Power cyber-physical systems, resilient restoration, knowledge graph, multi-agent reinforcement learning, federated learning, cross-layer design, graph attention networks.
+\end{IEEEkeywords}}
+
+\maketitle
+
+\IEEEdisplaynontitleabstractindextext
+
+\IEEEpeerreviewmaketitle
