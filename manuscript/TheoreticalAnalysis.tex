@@ -1,6 +1,6 @@
 \section{SECURITY ANALYSIS}
 \label{sec-security-analysis}
-We next establish four mechanism-level guarantees corresponding to the security objectives in Section~\ref{subsec-security-objectives}. The analysis is intentionally scoped to the trust boundaries enforced by Algorithms~\ref{alg-patb}--\ref{alg-trust-policy}; it does not assume that the full nonlinear PCPS or the underlying MARL optimizer admits a global convergence proof. Throughout the analysis, source identities and the protected actuation path are authenticated, the authoritative verifier is correctly implemented, and its conservative state set contains the realized state, $x_t\in\widehat{\mathcal X}_t$.
+We establish four mechanism-level guarantees corresponding to the security objectives in Section~\ref{subsec-security-objectives}. The analysis is scoped to the trust boundaries enforced by Algorithms~\ref{alg-patb}--\ref{alg-trust-policy}; it does not assume global convergence of the full nonlinear PCPS or the underlying MARL optimizer. Source identities and the protected actuation path are authenticated, the authoritative verifier is correctly implemented, and its conservative state set contains the realized state, $x_t\in\widehat{\mathcal X}_t$.
 
 \subsection{Bounded Poisoning Influence}
 \begin{theorem}[Bounded poisoning influence]
@@ -34,7 +34,7 @@ For provenance group $g$, Eqs.~\ref{eq-patb-group-scale}--\ref{eq-patb-effective
 \le |U_{g,t}^A(q)|+|U_{g,t}^0(q)|
 \le 2\beta_g.
 \end{align}
-All uncompromised-group terms cancel by assumption, and at most $f_p$ groups differ. With $\Delta_t=L_t^A(q)-L_t^0(q)$, Eq.~\ref{eq-patb-update} therefore gives
+All uncompromised-group terms cancel by assumption, and at most $f_p$ groups differ. With $\Delta_t=L_t^A(q)-L_t^0(q)$, Eq.~\ref{eq-patb-update} gives
 \begin{align}
 |\Delta_{t+1}|\le\lambda_f|\Delta_t|+2f_p\beta_{\max}.
 \end{align}
@@ -44,7 +44,7 @@ Starting from $\Delta_0=0$ and unrolling the recursion yields Eq.~\ref{eq-thm-lo
 The factor two is the general bound for fabrication, suppression, or modification: a compromised provenance group may move from one capped contribution in the reference trajectory to an opposite capped contribution in the attacked trajectory. Injection-only attacks can admit a tighter bound, but are not assumed here.
 
 \subsection{False-Authorization Risk}
-\begin{theorem}[False-authorization risk bound]
+\begin{theorem}[False semantic-authorization risk bound]
 \label{thm-false-authorization}
 Let action $\mathbf{a}$ require prerequisites $\mathcal{Q}(\mathbf{a})$. Assume each belief used by the semantic gate is calibrated up to $\varepsilon_q$, in the sense that whenever $b_t(q)\ge1-\delta_q$,
 \begin{align}
@@ -52,15 +52,15 @@ Let action $\mathbf{a}$ require prerequisites $\mathcal{Q}(\mathbf{a})$. Assume 
 \Pr(q_t^\star=0\mid b_t(q)\ge1-\delta_q)
 \le\delta_q+\varepsilon_q.
 \end{align}
-Assume also that $x_t\in\widehat{\mathcal X}_t$ and the authoritative verifier correctly enforces the invariant constraints over $\widehat{\mathcal X}_t$. If Algorithm~\ref{alg-risk-gate} enforces Eqs.~\ref{eq-gate-prerequisite}--\ref{eq-gate-risk-budget}, then
+If Algorithm~\ref{alg-risk-gate} enforces Eqs.~\ref{eq-gate-prerequisite}--\ref{eq-gate-risk-budget}, then for a candidate released by the semantic gate,
 \begin{align}
 \label{eq-thm-auth-bound}
-\Pr(\mathbf{a}\ \text{is falsely authorized})
+\Pr(\mathbf{a}\ \text{is falsely authorized semantically})
 \le
 \sum_{q\in\mathcal{Q}(\mathbf{a})}(\delta_q+\varepsilon_q)
 \le\bar\delta_B+\sum_{q\in\mathcal{Q}(\mathbf{a})}\varepsilon_q.
 \end{align}
-In particular, the Section~\ref{subsec-security-objectives} target in Eq.~\ref{eq-false-authorization-bound} is satisfied whenever
+The target in Eq.~\ref{eq-false-authorization-bound} is therefore satisfied whenever
 \begin{align}
 \label{eq-auth-budget-closure}
 \bar\delta_B+\sum_{q\in\mathcal{Q}(\mathbf{a})}\varepsilon_q
@@ -69,8 +69,10 @@ In particular, the Section~\ref{subsec-security-objectives} target in Eq.~\ref{e
 \end{theorem}
 
 \begin{proof}
-A semantic false authorization requires at least one prerequisite in $\mathcal{Q}(\mathbf{a})$ to be false while passing Eq.~\ref{eq-gate-prerequisite}. By Eq.~\ref{eq-calibration-assumption} and the union bound, the probability of this event is at most $\sum_q(\delta_q+\varepsilon_q)$. Equation~\ref{eq-gate-risk-budget} gives $\sum_q\delta_q\le\bar\delta_B$. Under state-set containment and verifier soundness, invariant physical violations are rejected independently and therefore do not enlarge this semantic bound. Equation~\ref{eq-auth-budget-closure} then closes the target $\delta_{\rm auth}$.
+A semantic false authorization requires at least one prerequisite in $\mathcal{Q}(\mathbf{a})$ to be false while the candidate passes Eq.~\ref{eq-gate-prerequisite}. Equation~\ref{eq-calibration-assumption} and the union bound give probability at most $\sum_q(\delta_q+\varepsilon_q)$. Equation~\ref{eq-gate-risk-budget} then gives $\sum_q\delta_q\le\bar\delta_B$, which yields Eq.~\ref{eq-thm-auth-bound} and the closure condition in Eq.~\ref{eq-auth-budget-closure}.
 \end{proof}
+
+Theorem~\ref{thm-false-authorization} concerns semantic authority. A semantically admitted candidate remains subject to invariant physical verification. The physical-safety argument continues to rely on state-set containment and verifier soundness.
 
 \subsection{Finite Belief Correction}
 \begin{theorem}[Finite correction after poisoning]
@@ -107,7 +109,7 @@ If the two trajectories were aligned before an attack lasting at most $H_A$ upda
 After $t_a$, the effective non-adversarial contributions in the two belief recursions are identical, so subtracting their instances of Eq.~\ref{eq-patb-update} gives $|\Delta_{t+1}|=\lambda_f|\Delta_t|$. Hence $|\Delta_{t_a+k}|=\lambda_f^k\Delta_a$. Applying the $1/4$ Lipschitz constant of the sigmoid yields Eq.~\ref{eq-thm-correction-decay}; solving $\lambda_f^k\Delta_a/4\le\epsilon_{\rm corr}$ yields Eq.~\ref{eq-thm-correction-time}. If the attack begins from aligned beliefs, repeatedly applying the one-step deviation bound $2f_p\beta_{\max}$ for at most $H_A$ updates gives the finite geometric sum in Eq.~\ref{eq-attack-duration-deviation}.
 \end{proof}
 
-The result is deliberately a sufficient condition. When post-attack effective weights do not immediately coincide, the same recursion acquires a residual-input term and converges to a corresponding error floor rather than necessarily to zero.
+The result is a sufficient condition. When post-attack effective weights do not immediately coincide, the same recursion acquires a residual-input term and converges to a corresponding error floor.
 
 \subsection{Bounded Policy Drift}
 \begin{theorem}[Trust-gated deployed-policy drift]
@@ -148,7 +150,7 @@ D_{\pi}(\Pi_k,\Pi_{k-1})
 Applying this bound to the attacked and reference promotions and using the triangle inequality of total variation recursively from the common initial policy gives Eq.~\ref{eq-thm-tv-policy}. Since total variation is at most one, clipping the right-hand side by one gives Eq.~\ref{eq-global-policy-epsilon}.
 \end{proof}
 
-Because $\kappa_\pi(\cdot)$ is nondecreasing, lower-trust update batches cannot receive a larger promotion radius. The theorem therefore formalizes the role of stable--candidate separation without requiring a positive lower bound on every action probability; KL is the enforceable promotion metric, while total variation is the cumulative security metric.
+Because $\kappa_\pi(\cdot)$ is nondecreasing, lower-trust update batches cannot receive a larger promotion radius. The theorem formalizes the role of stable--candidate separation without requiring a positive lower bound on every action probability; KL is the enforceable promotion metric, while total variation is the cumulative security metric.
 
 \subsection{Scope of the Guarantees}
-The four results are conditional security guarantees rather than a global convergence theorem for heterogeneous MARL. They require the trusted components specified in Section~\ref{subsec-threat-model}: authenticated source identities, a protected actuation path, correct implementation of provenance grouping and belief updates, state-set containment $x_t\in\widehat{\mathcal X}_t$, and an uncompromised authoritative verifier. The belief-distortion and correction results additionally condition on matched effective contributions from uncompromised provenance groups when comparing attacked and reference trajectories. They do not protect against arbitrary corruption of $\mathcal T^0$, verifier code, or all independent provenance groups simultaneously. Full closed-loop recovery effects beyond the conditional knowledge-plane comparisons are evaluated empirically rather than hidden inside a general learning-convergence claim.
+The four results are conditional security guarantees, not a global convergence theorem for heterogeneous MARL. They require the trusted components specified in Section~\ref{subsec-threat-model}: authenticated source identities, a protected actuation path, correct implementation of provenance grouping and belief updates, state-set containment $x_t\in\widehat{\mathcal X}_t$, and an uncompromised authoritative verifier. The belief-distortion and correction results additionally condition on matched effective contributions from uncompromised provenance groups when comparing attacked and reference trajectories. They do not protect against arbitrary corruption of $\mathcal T^0$, verifier code, or all independent provenance groups simultaneously. Full closed-loop recovery effects beyond the conditional knowledge-plane comparisons are evaluated empirically.

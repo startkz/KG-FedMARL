@@ -1,6 +1,6 @@
 \section{PROBLEM FORMULATION}
 \label{sec-problem-formulation}
-This section formalizes resilient restoration under adversarial recovery knowledge. The formulation separates partial observability, evidence-dependent action admissibility, worst-case recovery performance, and the security objective of bounding the propagation of erroneous knowledge. The attacker is modeled through the observation and evidence processes defined in Section~\ref{sec-system-model}, rather than as a cooperative decision agent.
+This section formalizes resilient restoration under adversarial recovery knowledge. The formulation separates partial observability, evidence-dependent action admissibility, worst-case recovery performance, and the security objective of bounding the propagation of erroneous knowledge. The attacker is modeled through the observation and evidence processes defined in Section~\ref{sec-system-model}, not as a cooperative decision agent.
 
 \subsection{Constrained Dec-POMDP under Adversarial Knowledge}
 \label{subsec-decpomdp}
@@ -26,7 +26,7 @@ a_{i,t}\sim\pi_i(\cdot\mid\iota_{i,t}),
 \end{align}
 and the joint candidate action is $\mathbf{a}_t=(a_{1,t},\ldots,a_{N,t})$.
 
-The adversary affects decision making indirectly by manipulating admissible evidence streams within the budget $\Omega_A$ in Eq.~\ref{eq-attack-budget}. Thus the observation and knowledge processes are attack dependent, whereas the physical transition kernel remains governed by the PCPS dynamics in Eq.~\ref{eq-system-transition}. This distinction is important: the security problem is not merely to tolerate exogenous state disturbances, but to prevent corrupted observations from becoming trusted recovery knowledge and then executable control authority.
+The adversary affects decision making through admissible evidence streams within the budget $\Omega_A$ in Eq.~\ref{eq-attack-budget}. The observation and knowledge processes are attack dependent, while the physical transition kernel remains governed by the PCPS dynamics in Eq.~\ref{eq-system-transition}. The security problem is to keep corrupted observations from acquiring trusted recovery authority and influencing later control or learning.
 
 \subsection{Risk-Aware Action Admissibility}
 \label{subsec-risk-admissibility}
@@ -35,13 +35,13 @@ We partition the restoration constraints into invariant engineering constraints 
 \label{eq-constraint-partition}
 \mathcal{C}=\mathcal{C}^{\rm inv}\cup\mathcal{C}^{\rm evid}_t.
 \end{align}
-The set $\mathcal{C}^{\rm inv}$ contains requirements whose validity does not depend on online attack diagnosis, such as voltage and thermal limits, device ratings, power-balance relations, protection interlocks, and radiality. By contrast, $\mathcal{C}^{\rm evid}_t$ contains runtime conditions inferred from evidence, such as whether a controller is available, whether a command route is reachable, or whether a measurement chain is sufficiently trustworthy for a specific operation.
+The set $\mathcal{C}^{\rm inv}$ contains requirements whose validity does not depend on online attack diagnosis, such as voltage and thermal limits, device ratings, power-balance relations, protection interlocks, and radiality. The set $\mathcal{C}^{\rm evid}_t$ contains runtime conditions inferred from evidence, such as controller availability, command-route reachability, or the trustworthiness of a measurement chain for a specific operation.
 
 For a candidate joint action $\mathbf{a}$, let
 \begin{align}
 \mathcal{Q}(\mathbf{a})=\{q_1,\ldots,q_m\}
 \end{align}
-be the dynamic assertions that must hold for its cyber-physical execution. Instead of converting each KG assertion into a binary rule, we assign a risk budget $\delta_q\in(0,1)$ and require
+be the dynamic assertions that must hold for its cyber-physical execution. We assign each prerequisite a risk budget $\delta_q\in(0,1)$ and require
 \begin{align}
 \label{eq-belief-prerequisite}
 b_t(q)\ge 1-\delta_q,
@@ -56,7 +56,7 @@ The corresponding belief-admissible set is
 \ \forall q\in\mathcal{Q}(\mathbf{a})
 \right\}.
 \end{align}
-Equation~\ref{eq-belief-admissible-set} makes uncertainty explicit: insufficient evidence cannot be interpreted as permission. The aggregate semantic risk budget for action $\mathbf{a}$ is constrained by
+Insufficient evidence does not create permission. The aggregate semantic risk budget for action $\mathbf{a}$ is
 \begin{align}
 \label{eq-semantic-risk-budget}
 \sum_{q\in\mathcal{Q}(\mathbf{a})}\delta_q\le\bar{\delta}_{B},
@@ -79,7 +79,7 @@ The functions $g_k$ and $h_l$ represent inequality and equality/structural const
 \mathbb{U}^{\rm adm}_t
 =\mathbb{U}^{B}_t\cap\mathbb{U}^{\rm inv}_t.
 \end{align}
-A learned surrogate may later reduce the number of candidates sent to exact verification, but it cannot enlarge $\mathbb{U}^{\rm inv}_t$ and therefore has no independent authorization authority. If no nontrivial action is admissible, the controller executes a certified fallback action $\mathbf{a}^{\rm fb}_t\in\mathbb{U}^{\rm inv}_t$, such as maintaining isolation, retaining local control, or shedding a bounded amount of load.
+A learned surrogate may later reduce the number of candidates sent to exact verification, but it cannot enlarge $\mathbb{U}^{\rm inv}_t$ and has no independent authorization authority. If no nontrivial action is admissible, the controller executes a certified fallback action $\mathbf{a}^{\rm fb}_t\in\mathbb{U}^{\rm inv}_t$, such as maintaining isolation, retaining local control, or shedding a bounded amount of load.
 
 \subsection{Robust Recovery Objective}
 \label{subsec-robust-objective}
@@ -90,7 +90,7 @@ Let $\mathcal{L}$ be the set of loads, $P_l$ the nominal demand of load $l$, $w_
 \frac{\sum_{l\in\mathcal{L}}w_lP_l y_{l,t}}
 {\sum_{l\in\mathcal{L}}w_lP_l}.
 \end{align}
-We use safety as a hard constraint rather than allowing a large restoration reward to compensate for an unsafe operation. The stage reward therefore captures service recovery and operational costs,
+Safety is a hard constraint, so a large restoration reward cannot compensate for an unsafe operation. The stage reward captures service recovery and operational costs,
 \begin{align}
 \label{eq-robust-reward}
 R_t=
@@ -127,11 +127,11 @@ and to the physical safety and recovery requirements
 \label{eq-recovery-liveness}
 \Pr\left(\exists t\le T_{\max}:x_t\in\mathcal{X}_{\rm tar}\right)&\ge1-\delta_r.
 \end{align}
-Here $\mathcal{X}_{\rm unsafe}$ and $\mathcal{X}_{\rm tar}$ denote the unsafe and target recovery sets, respectively. Equation~\ref{eq-recovery-liveness} prevents an overly conservative knowledge gate from achieving safety simply by refusing all useful restoration actions.
+Here $\mathcal{X}_{\rm unsafe}$ and $\mathcal{X}_{\rm tar}$ denote the unsafe and target recovery sets, respectively. Equation~\ref{eq-recovery-liveness} rules out a trivially safe controller that refuses every useful restoration action.
 
 \subsection{Security Objectives: Bounding Knowledge Propagation}
 \label{subsec-security-objectives}
-The distinguishing security objective of this work is to bound how far adversarial evidence can propagate through the recovery loop. We formalize this requirement at the knowledge, action, correction, and policy levels. These properties are design targets in this section; Section~V provides the mechanisms and Section~VI establishes sufficient conditions for them.
+We track propagation at four points in the recovery loop: the knowledge state, semantic action authority, post-attack correction, and the deployed policy. Section~V gives the corresponding mechanisms and Section~VI states sufficient conditions for the four bounds below.
 
 \emph{1) Bounded belief distortion.}
 Let $\mathcal{B}^{0}_t$ denote the counterfactual recovery belief state generated from uncompromised evidence and $\mathcal{B}^{A}_t$ the belief state under an admissible attack. To isolate knowledge-plane sensitivity, the comparison is conditioned on the same realized physical/action history up to time $t$; full closed-loop divergence is evaluated through the recovery objective and experiments. For the task-relevant assertion set $\mathcal{Q}_t$, define
@@ -142,7 +142,7 @@ D_B(\mathcal{B}^{A}_t,\mathcal{B}^{0}_t)
 \left|b^{A}_t(q)-b^{0}_t(q)\right|,
 \qquad \sum_q\omega_q=1.
 \end{align}
-The first objective is the existence of a finite attack-budget-dependent bound
+The first objective is
 \begin{align}
 \label{eq-bounded-belief-distortion}
 \sup_{t\le T}
@@ -150,16 +150,25 @@ D_B(\mathcal{B}^{A}_t,\mathcal{B}^{0}_t)
 \le \varepsilon_B(\Omega_A).
 \end{align}
 
-\emph{2) Bounded false authorization.}
-Let $\mathbb{U}^{\star}_t$ denote the ground-truth admissible action set that satisfies both the true runtime prerequisites $q_t^{\star}$ and the invariant engineering constraints. A false authorization occurs when an action is admitted by the online belief state but is not contained in $\mathbb{U}^{\star}_t$. We require
+\emph{2) Bounded false semantic authorization.}
+Define the ground-truth semantic-admissible set
+\begin{align}
+\label{eq-groundtruth-semantic-set}
+\mathbb{U}^{B,\star}_t=
+\left\{\mathbf{a}\ \middle|\
+q_t^\star=1,\ \forall q\in\mathcal{Q}(\mathbf{a})
+\right\}.
+\end{align}
+Let $\mathbf{a}^{\rm sem}_t$ denote a candidate released by the semantic gate for invariant verification or an execution attempt. A false semantic authorization occurs when the belief gate admits this candidate even though at least one required runtime prerequisite is false. We require
 \begin{align}
 \label{eq-false-authorization-bound}
 \Pr\left(
-\mathbf{a}^{\rm exec}_t\in
-\mathbb{U}^{\rm adm}_t\setminus\mathbb{U}^{\star}_t
+\mathbf{a}^{\rm sem}_t\in
+\mathbb{U}^{B}_t\setminus\mathbb{U}^{B,\star}_t
 \right)
 \le \delta_{\rm auth}.
 \end{align}
+This event is upstream of invariant physical verification. Electrical and structural safety remain governed by $\mathbb{U}^{\rm inv}_t$, the authoritative verifier, and the trust assumption $x_t\in\widehat{\mathcal X}_t$.
 
 \emph{3) Finite correction after poisoning.}
 Suppose an attack affecting assertion $q$ ceases at time $t_a$ and sufficient uncompromised effective evidence resumes. For tolerance $\epsilon_{\rm corr}>0$, define the correction time
@@ -198,4 +207,4 @@ D_{\pi}(\Pi^{A}_t,\Pi^{0}_t)
 \end{align}
 Section~V enforces a KL trust region at each candidate-policy promotion, while Section~VI uses Pinsker's inequality on the fixed audit distribution to derive the deployed-policy bound in Eq.~\ref{eq-policy-propagation-bound}.
 
-Together, Eqs.~\ref{eq-bounded-belief-distortion}--\ref{eq-policy-propagation-bound} define the core security problem addressed by this paper: under incomplete, stale, conflicting, and partially adversarial recovery evidence, maintain an online knowledge state whose error remains bounded, prevent that error from directly authorizing unsafe recovery actions, correct poisoned knowledge within finite time once trustworthy evidence returns, and limit the resulting deviation of online recovery policies.
+Together, Eqs.~\ref{eq-bounded-belief-distortion}--\ref{eq-policy-propagation-bound} specify the security problem used in the rest of the paper: bound error in the online recovery knowledge, keep that error from granting semantic authority to actions with false runtime prerequisites, correct poisoned beliefs after trustworthy evidence returns, and limit the resulting policy deviation.

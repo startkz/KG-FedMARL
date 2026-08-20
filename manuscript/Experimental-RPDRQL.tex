@@ -1,14 +1,14 @@
 \section{EXPERIMENTAL EVALUATION}
 \label{sec:experiments}
 
-The evaluation is organized around the four security objectives in Section~\ref{subsec-security-objectives}: bounded recovery-belief distortion, bounded false authorization, finite post-attack correction, and bounded deployed-policy deviation. We use two complementary levels of evidence. First, controlled mechanism-level experiments directly instantiate the bounded update, authorization, correction, and promotion rules in Sections~V--VI and test the sufficient analytical envelopes. Second, feeder-level simulations place the same recovery-knowledge mechanisms around an AC power-flow verifier and evaluate end-to-end restoration under adversarial evidence. All feeder-level statistics reported below are computed from per-seed simulator logs rather than from the hard-coded arrays retained in the legacy plotting scripts.
+We evaluate the four security quantities defined in Section~\ref{subsec-security-objectives} at two levels. Controlled experiments exercise the bounded belief update, semantic authorization rule, post-attack correction, and policy-promotion constraint directly. Feeder simulations then place the same knowledge mechanisms in a restoration loop with an AC power-flow verifier. Feeder statistics are computed from per-seed simulator logs; the legacy plotting arrays are not used in the reported results.
 
-\subsection{Evaluation Questions, Metrics, and Attack Controls}
+\subsection{Evaluation Setup and Metrics}
 \label{subsec-exp-questions}
 
-The evaluation asks four questions. First, does provenance-group capping prevent a bounded number of compromised evidence groups from accumulating unbounded authority in the recovery belief state? Second, after poisoning stops and effective uncompromised evidence becomes aligned again, how quickly does the attacked belief return to the clean reference? Third, does the risk-aware recovery gate reduce false authorization while preserving useful restoration progress? Fourth, does transition quarantine and trust-dependent policy promotion limit the propagation of contaminated recovery experience into the deployed policy?
+The controlled experiments report belief distortion $D_B$, false semantic-authorization probability, correction time $T_{\rm corr}$, and deployed-policy distance $D_\pi$. The feeder experiments additionally report the normalized area under the restored-service curve (AURC), time to 90\% service restoration $T_{\rm crit}$, fallback frequency $r_{\rm fb}$, and mean authorization-loop latency $T_{\rm gate}$.
 
-We use the same security metrics as the formal analysis: $D_B$ in Eq.~\ref{eq-belief-distance}, false-authorization probability in Eq.~\ref{eq-false-authorization-bound}, $T_{\rm corr}$ in Eq.~\ref{eq-correction-time}, and $D_\pi$ in Eq.~\ref{eq-policy-distance}. Feeder-level recovery additionally reports the area under the restored-service curve (AURC), time to 90\% service restoration $T_{\rm crit}$, fallback frequency $r_{\rm fb}$, and mean authorization-loop latency $T_{\rm gate}$. AURC is normalized to $[0,1]$. Physical performance is interpreted jointly with the security metrics: a larger restored-load ratio is not considered an improvement if it is obtained by increasing false authorization or bypassing the authoritative verifier.
+For the feeder results, $P_{\rm FA}$ denotes the \emph{semantic false-authorization rate}. A candidate contributes to this rate when it is released by the method's semantic eligibility rule but its ground-truth runtime availability prerequisite is false. This event is scored before AC verification. In the simulator, an unavailable prerequisite causes that candidate attempt to fail before physical verification and consumes one of the bounded candidate attempts; the ground-truth value is not supplied to the belief updater, policy, or candidate ranking. Thus $P_{\rm FA}$ measures an error in semantic authority, not an executed invariant-constraint violation.
 
 \begin{table}[t]
 \centering
@@ -22,29 +22,29 @@ Experiment & Main controls & Reported quantity \\
 \midrule
 Belief poisoning & $\lambda_f=0.85$, $\beta_{\max}=0.025$, $f_p=0{:}5$ & mean/95th-pct. $D_B$ and Thm.~1 bound \\
 Correction & $f_p=2$, $H_A=2{:}20$, $\epsilon_{\rm corr}=0.02$ & $T_{\rm corr}$ and Thm.~3 bound \\
-Authorization & $|\mathcal Q(\mathbf a)|=4$, $\epsilon_q=0.005$ & false-authorization probability \\
+Authorization & $|\mathcal Q(\mathbf a)|=4$, $\epsilon_q=0.005$ & false semantic authorization \\
 Policy promotion & 64 audit states, 4 actions, $K=0{:}10$ & $D_\pi$ and Thm.~4 bound \\
 \bottomrule[1.3pt]
 \end{tabular}}
 \end{table}
 
-For the feeder experiments, attack intensity is parameterized by $\Omega_A=(f_p,B_z,H_A,\epsilon_s)$. The four levels are none $(0,0,0,0)$, low $(1,2,4,0.01)$, medium $(2,6,8,0.02)$, and high $(3,12,12,0.05)$. During the bounded attack interval, the evidence generator cycles through fabrication, replay, delay, missing-evidence, and correlated-source modes. These operations modify authenticated recovery evidence and timing; they do not bypass the protected actuation path or authoritative physical verifier.
+The feeder attack budget is $\Omega_A=(f_p,B_z,H_A,\epsilon_s)$. We use none $(0,0,0,0)$, low $(1,2,4,0.01)$, medium $(2,6,8,0.02)$, and high $(3,12,12,0.05)$. During the bounded attack interval, the evidence generator cycles through fabrication, replay, delay, missing-evidence, and correlated-source modes. The protected actuation path and the AC verifier are outside this attack interface.
 
-\subsection{Bounded Belief Distortion and Finite Correction}
+\subsection{Belief Distortion and Post-Attack Correction}
 \label{subsec-exp-belief}
 
-The first controlled experiment injects bounded differences between attacked and reference provenance groups while keeping uncompromised contributions matched, as required by Theorem~\ref{thm-bounded-poisoning}. For each $f_p$, we run 800 independent 80-update trials. Each compromised group contributes a per-update difference in $[0,2\beta_{\max}]$, reflecting the general case in which a capped group can move from one signed contribution to an opposite signed contribution. Fig.~\ref{fig-exp-belief-budget} reports the maximum belief deviation in each trial together with the analytical envelope.
+For the belief experiment, attacked and reference trajectories receive identical uncompromised provenance-group contributions. Each compromised group contributes a per-update difference in $[0,2\beta_{\max}]$. We run 800 independent 80-update trials for each $f_p$ and record the maximum belief deviation.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/kgfedmarl_belief_budget.eps}
-\caption{Controlled belief distortion versus the number of compromised provenance groups. The mean and 95th percentile remain below the sufficient Theorem~\ref{thm-bounded-poisoning} envelope.}
+\caption{Controlled belief distortion versus the number of compromised provenance groups. Mean and 95th-percentile deviations are compared with the sufficient bound in Theorem~\ref{thm-bounded-poisoning}.}
 \label{fig-exp-belief-budget}
 \end{figure}
 
-The controlled mean $D_B$ increases from 0.0543 at $f_p=1$ to 0.2208 at $f_p=5$, while the corresponding 95th percentiles are 0.0605 and 0.2339. The sufficient bounds are 0.0833 and 0.4167. The gap is expected because Theorem~\ref{thm-bounded-poisoning} protects against the worst signed difference of every compromised group at every update, whereas the experiment samples contributions within the admissible range. The important result is the bounded scaling behavior: the implemented provenance cap prevents duplicated or correlated evidence from accumulating unlimited belief authority.
+Mean $D_B$ rises from 0.0543 at $f_p=1$ to 0.2208 at $f_p=5$; the corresponding 95th percentiles are 0.0605 and 0.2339. The sufficient bounds are 0.0833 and 0.4167. The observed deviations stay below the envelope for all tested $f_p$. The gap widens because the theorem allows every compromised group to take its worst signed contribution at every update, whereas the experiment samples contributions inside the admissible interval.
 
-The correction experiment applies the worst signed group difference for an attack lasting $H_A$ updates and removes the attack thereafter. The attacked and clean processes then receive identical effective uncompromised evidence, matching the sufficient condition in Theorem~\ref{thm-finite-correction}. Fig.~\ref{fig-exp-correction} reports the updates required to return within $\epsilon_{\rm corr}=0.02$ of the reference belief.
+The correction experiment applies the worst signed group difference for $H_A$ updates and then removes the attack. From that point, attacked and reference processes receive identical effective uncompromised evidence, matching the sufficient condition of Theorem~\ref{thm-finite-correction}.
 
 \begin{figure}[t]
 \centering
@@ -53,79 +53,83 @@ The correction experiment applies the worst signed group difference for an attac
 \label{fig-exp-correction}
 \end{figure}
 
-Correction requires 6 updates after a two-update attack and rises to 13 updates for the longest tested attacks. The curve saturates because the attack-induced log-odds deviation is itself bounded by the geometric accumulation in Eq.~\ref{eq-attack-duration-deviation}. This also shows that $\lambda_f$ is a security parameter rather than only a tracking parameter: preserving old evidence longer enlarges both the poisoning envelope and the correction time.
+Correction takes 6 updates after a two-update attack and 13 updates for the longest tested attacks. The saturation is consistent with the finite geometric accumulation in Eq.~\ref{eq-attack-duration-deviation}. The forgetting factor is fixed at $\lambda_f=0.85$ in this experiment; its effect on the poisoning envelope and correction time follows from Eqs.~\ref{eq-thm-belief-bound} and~\ref{eq-thm-correction-time}, rather than from a $\lambda_f$ sweep in Fig.~\ref{fig-exp-correction}.
 
-\subsection{False Authorization and Policy Propagation}
+\subsection{Semantic Authorization and Policy Propagation}
 \label{subsec-exp-auth-policy}
 
-To evaluate the semantic authorization budget, we use actions with four evidence-dependent prerequisites. The controlled calibration error is $\epsilon_q=0.005$ per prerequisite, and the aggregate budget $\bar\delta_B$ is swept from 0.01 to 0.10 with equal per-prerequisite allocation. For each point, 200,000 Monte Carlo actions are generated. Independence is used only by the experiment generator; Theorem~\ref{thm-false-authorization} itself uses a union bound and does not require independent prerequisites.
+The authorization experiment uses four evidence-dependent prerequisites. We set the calibration error to $\epsilon_q=0.005$ per prerequisite and sweep the aggregate semantic budget $\bar\delta_B$ from 0.01 to 0.10 with equal allocation. Each point uses 200,000 Monte Carlo actions. Independence is used by the generator only; the union bound in Theorem~\ref{thm-false-authorization} does not require independent prerequisites.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/kgfedmarl_false_authorization.eps}
-\caption{Controlled false-authorization probability versus aggregate semantic risk budget. The observed rate remains below $\bar\delta_B+\sum_q\epsilon_q$.}
+\caption{Controlled false semantic-authorization probability versus aggregate semantic risk budget.}
 \label{fig-exp-false-auth}
 \end{figure}
 
-Across the sweep, the observed false-authorization probability ranges from 0.0297 to 0.1148, while the sufficient bounds range from 0.03 to 0.12. This experiment isolates the calibration-to-authorization link. In the feeder loop, an action that passes this semantic gate is still checked by the authoritative AC verifier, so the semantic risk budget cannot itself authorize an invariant physical violation.
+The observed probability ranges from 0.0297 to 0.1148, while the sufficient bound $\bar\delta_B+\sum_q\epsilon_q$ ranges from 0.03 to 0.12. This experiment checks the calibration-to-gate relation used in Theorem~\ref{thm-false-authorization}. Invariant physical feasibility is evaluated separately by the authoritative verifier in the feeder loop.
 
-The policy-propagation experiment uses 64 fixed audit states and a four-action categorical policy. The attacked and reference deployments start from the same policy and undergo up to ten successful promotion events. Candidate updates are projected to satisfy $\kappa_\pi(0.55)=0.00215$ for the lower-trust attacked stream and $\kappa_\pi(0.90)=0.0032$ for the reference stream. Fig.~\ref{fig-exp-policy-drift} compares the resulting audit-distribution TV distance with the cumulative Theorem~\ref{thm-policy-drift} envelope.
+For policy propagation, the attacked and reference deployments start from the same four-action policy on 64 fixed audit states and undergo up to ten successful promotions. Candidate updates satisfy $\kappa_\pi(0.55)=0.00215$ for the lower-trust attacked stream and $\kappa_\pi(0.90)=0.0032$ for the reference stream.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/kgfedmarl_policy_drift.eps}
-\caption{Controlled deployed-policy drift on a fixed audit distribution. The sufficient bound is conservative because it accumulates worst-case per-promotion TV changes.}
+\caption{Controlled deployed-policy drift on a fixed audit distribution.}
 \label{fig-exp-policy-drift}
 \end{figure}
 
-After ten promotions, the controlled attacked-versus-reference policy deviation is 0.1379, whereas the sufficient cumulative bound is 0.7279. This numerical gap is consistent with the theorem's use of Pinsker's inequality and a worst-case triangle inequality; the theorem intentionally avoids assuming a positive lower bound on every action probability or aligned promotion directions.
+After ten promotions, the attacked-versus-reference policy distance is 0.1379; the cumulative sufficient bound is 0.7279. The bound is loose because it combines Pinsker's inequality with a triangle inequality over promotion events and does not assume aligned update directions.
 
 \subsection{Feeder-Level End-to-End Evaluation}
 \label{subsec-exp-feeder}
 
-We next embed the same knowledge attack and authorization mechanisms in feeder power-flow simulations. The supplied environment provides the IEEE 33-bus and a 69-bus radial benchmark through pandapower. For the larger cases, we use the canonical IEEE 123 and 8500-node OpenDSS test feeders pinned to a fixed upstream revision. The simulator exposes 132 buses for the IEEE 123 case and 4,876 buses for the 8500-node model. Loads are partitioned into 8, 10, 12, and 32 restoration blocks, respectively, with 8, 10, 12, and 16 recovery agents. The authoritative verifier solves AC power flow for each physically evaluated candidate and accepts it only when all monitored service nodes remain in $[0.90,1.10]$ p.u. The OpenDSS service-node monitor set is fixed from the canonical solved base case; internal or auxiliary nodes whose base-case values are outside $[0.80,1.20]$ p.u. are excluded from that service-voltage test. In the 8500-node model this excludes ten internal/auxiliary nodes with approximately 0.06-p.u. canonical values while leaving the monitored base case inside $[0.90,1.10]$ p.u.
+The supplied environment provides the IEEE 33-bus and a 69-bus radial benchmark through pandapower. The larger cases use the canonical IEEE 123 and 8500-node OpenDSS feeders at a pinned upstream revision. The simulator exposes 132 buses for IEEE 123 and 4,876 buses for the 8500-node model. Loads are divided into 8, 10, 12, and 32 restoration blocks, with 8, 10, 12, and 16 recovery agents, respectively. Every physically evaluated candidate is solved by the authoritative AC verifier and accepted only if all monitored service nodes remain in $[0.90,1.10]$ p.u. For the OpenDSS cases, the service-node monitor set is fixed from the canonical solved base case. Ten internal or auxiliary nodes of the 8500-node case with canonical values near 0.06 p.u. are excluded from this service-voltage set.
 
-For the 8500-node case, the damaged initial state is not formed by enabling an arbitrary 35\% subset. Instead, the simulator starts from the canonical feasible operating point and sheds 32 balanced load blocks while retaining only verifier-feasible intermediate states until the served-load ratio reaches approximately 34.3\%. Online restoration then ranks semantically eligible candidates and evaluates at most $K_{\max}=8$ candidates with the same authoritative AC verifier before declaring fallback. This bounded search is the feeder implementation of the candidate-verification budget in Algorithm~2. For false-authorization accounting, every belief-authorized candidate whose ground-truth availability prerequisite is false is counted before physical verification; ground truth is used only for scoring and is not exposed to the policy or belief updater. Each reported configuration uses 20 independent seeds.
+The 8500-node damaged state is constructed from the canonical feasible operating point. Balanced load blocks are shed one at a time, and only verifier-feasible intermediate states are retained until the served-load ratio is about 34.3\%. During restoration, at most $K_{\max}=8$ ranked candidates are considered in each decision step. Each reported configuration uses 20 independent seeds.
 
-To isolate the effect of the recovery-knowledge and authorization layer, all baseline methods share the same load-priority candidate policy and the same AC verifier. \emph{Oracle-AC} uses the true current availability only as an upper-reference information source; \emph{Latest-Evidence} acts on the latest aggregated evidence without the temporal belief mechanism; \emph{Static-KG} retains the initial availability state; and KG-FedMARL uses the provenance-aware belief, semantic gate, and trust-gated adaptation. Thus the comparison does not attribute differences to unrelated RL architectures.
+All baseline methods use the same load-priority candidate policy and AC verifier. \emph{Oracle-AC} ranks only candidates whose current runtime availability is true and serves as an information upper reference. \emph{Latest-Evidence} uses the most recent aggregated evidence. \emph{Static-KG} keeps the initial availability state. KG-FedMARL uses the provenance-aware belief and semantic gate, with the same downstream candidate search and physical verifier.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/final_feeder_results/feeder_end_to_end_baseline.eps}
-\caption{End-to-end restoration AURC on IEEE 33-bus under medium mixed recovery-knowledge poisoning. Bars report mean $\pm$ standard deviation over 20 seeds.}
+\caption{End-to-end restoration AURC on IEEE 33-bus under medium mixed recovery-knowledge poisoning. Bars show mean $\pm$ standard deviation over 20 seeds.}
 \label{fig-feeder-baseline}
 \end{figure}
 
-Fig.~\ref{fig-feeder-baseline} shows that KG-FedMARL reaches an AURC of $0.9150\pm0.0177$, compared with $0.9236\pm0.0102$ for Oracle-AC, $0.9139\pm0.0096$ for Latest-Evidence, and $0.9236\pm0.0102$ for Static-KG. KG-FedMARL therefore remains within 0.93\% AURC of the oracle-information reference. The central difference is authorization quality: the mean false-authorization probability is 0.0286 for KG-FedMARL, compared with 0.1143 for Latest-Evidence and 0.2676 for Static-KG, corresponding to reductions of 75.0\% and 89.3\%, respectively. Latest-Evidence also yields a larger mean deployed-policy deviation (0.0332 versus 0.0126). Static-KG attains oracle-level AURC only because the bounded candidate search and exact verifier can reject invalid candidates and continue to another candidate; its much higher false-authorization rate shows why restored load alone is insufficient as the security metric.
+KG-FedMARL obtains an AURC of $0.9150\pm0.0177$, compared with $0.9236\pm0.0102$ for Oracle-AC, $0.9139\pm0.0096$ for Latest-Evidence, and $0.9236\pm0.0102$ for Static-KG. The KG-FedMARL mean is 0.92\% below the oracle-information reference. Its semantic false-authorization rate is 0.0286, versus 0.1143 for Latest-Evidence and 0.2676 for Static-KG; these correspond to relative reductions of 75.0\% and 89.3\%. Latest-Evidence also has a larger mean $D_\pi$ (0.0332 versus 0.0126).
+
+Static-KG reaches the same mean AURC as Oracle-AC in this setup despite its much larger $P_{\rm FA}$. The reason is specific to the simulator: an authorized candidate with an unavailable runtime prerequisite is recorded as a semantic false authorization, consumes a candidate attempt, and fails before AC verification; the bounded search may then try another candidate in the same decision step. The AURC comparison should therefore be read together with $P_{\rm FA}$ rather than as evidence that the static knowledge state is equally trustworthy.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/final_feeder_results/feeder_attack_intensity.eps}
-\caption{Feeder-level belief distortion on IEEE 33-bus as the bounded recovery-knowledge attack budget increases.}
+\caption{Feeder-level belief distortion on IEEE 33-bus as the recovery-knowledge attack budget increases.}
 \label{fig-feeder-intensity}
 \end{figure}
 
-Fig.~\ref{fig-feeder-intensity} varies the joint attack budget from none to high. Mean $D_B$ increases from approximately zero without attack to 0.1287, 0.1974, and 0.4303 for low, medium, and high poisoning. False authorization rises from 0 to 0.0167, 0.0286, and 0.0962. In contrast, AURC remains in a narrow 0.914--0.918 range across all four settings. The near-flat physical metric should not be read as absence of attack impact: the knowledge and authorization metrics degrade substantially, while the semantic gate, bounded candidate search, exact verifier, and fallback logic prevent that degradation from being converted directly into aggressive field execution.
+Across none, low, medium, and high attack settings, mean $D_B$ is approximately 0, 0.1287, 0.1974, and 0.4303. The corresponding semantic false-authorization rates are 0, 0.0167, 0.0286, and 0.0962. AURC stays between 0.914 and 0.918. These results establish a clear change in the knowledge and authorization metrics over the tested attack budgets; the physical-service metric changes much less in the same runs. The experiment does not isolate which downstream safeguard is responsible for that difference.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/final_feeder_results/feeder_security_ablation.eps}
-\caption{Security-boundary ablation on IEEE 33-bus under medium poisoning. The plotted quantity is false-authorization probability; companion metrics are reported in the text.}
+\caption{Security-boundary ablation on IEEE 33-bus under medium poisoning. The plotted quantity is the semantic false-authorization rate.}
 \label{fig-feeder-ablation}
 \end{figure}
 
-The ablation results in Fig.~\ref{fig-feeder-ablation} separate the roles of the trust boundaries. Removing provenance-group caps increases mean $D_B$ from 0.1974 to 0.3708 (87.9\%) and increases $D_\pi$ from 0.0126 to 0.0305. Disabling forgetting raises $D_B$ to 0.2562, false authorization to 0.0990, and $D_\pi$ to 0.0308. Removing the semantic gate produces the largest direct authorization failure: $P_{\rm FA}$ rises to 0.2676, 9.4 times the full method, even though AURC increases to 0.9236. This is a deliberate security--utility contrast: the verifier can preserve electrical feasibility, but it cannot make a semantically unauthorized recovery action correct. Removing transition quarantine leaves immediate belief and authorization metrics unchanged but increases $D_\pi$ by 30.6\% to 0.0164. The fixed promotion-radius ablation differs only weakly over this short feeder horizon; its effect is more clearly exposed by the longer controlled policy-drift experiment in Fig.~\ref{fig-exp-policy-drift}.
+The one-at-a-time ablations are consistent with the intended roles of the security mechanisms. Removing provenance-group caps raises mean $D_B$ from 0.1974 to 0.3708 (87.9\%) and $D_\pi$ from 0.0126 to 0.0305. With forgetting disabled, $D_B$ is 0.2562, $P_{\rm FA}$ is 0.0990, and $D_\pi$ is 0.0308. Removing the semantic gate raises $P_{\rm FA}$ to 0.2676, 9.4 times the full method, while AURC rises to 0.9236. Removing transition quarantine leaves the immediate belief and authorization metrics unchanged in this setup but increases $D_\pi$ from 0.0126 to 0.0164 (30.6\%). The fixed-radius variant is close to the full method over the 24-step feeder horizon ($D_\pi=0.01274$ versus $0.01257$). This feeder run is therefore insufficient to quantify the benefit of the trust-dependent promotion radius; a dedicated longer-horizon radius ablation would be needed for that claim.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/final_feeder_results/feeder_scalability.eps}
-\caption{Mean authorization-loop latency versus feeder size under medium poisoning. Error bars show standard deviation over 20 seeds.}
+\caption{Authorization-loop latency across the four feeder cases under medium poisoning. Error bars show standard deviation over 20 seeds.}
 \label{fig-feeder-scale}
 \end{figure}
 
-Fig.~\ref{fig-feeder-scale} evaluates the complete authorization loop, including the AC verifier. Mean latency is $10.92\pm3.99$ ms on IEEE 33-bus, $12.31\pm2.83$ ms on the supplied 69-bus case, $1.07\pm0.18$ ms on the IEEE 123 OpenDSS case, and $62.43\pm3.16$ ms on the 4,876-bus realization of the IEEE 8500-node feeder. The non-monotone small-feeder timings reflect different solver backends and should not be interpreted as a pure algorithmic complexity curve. The revised 8500-node partition changes the earlier liveness stress result materially: starting from a verifier-feasible 34.3\% served-load state, all 20 runs reach 90\% service at step 18 and finish at full served load, with AURC $0.7127\pm0.0009$, mean fallback rate 0.0063, and zero recorded physical-safety violations. This improvement comes from finer load partitioning, a verifier-preserving damaged-state construction, and bounded ranked verification; it does not weaken the $[0.90,1.10]$ service-node voltage criterion.
+Mean authorization-loop latency is $10.92\pm3.99$ ms on IEEE 33-bus, $12.31\pm2.83$ ms on the supplied 69-bus case, $1.07\pm0.18$ ms on the IEEE 123 OpenDSS case, and $62.43\pm3.16$ ms on the 4,876-bus realization of the IEEE 8500-node feeder. The non-monotone values coincide with the use of different solver backends, so Fig.~\ref{fig-feeder-scale} is a cross-feeder runtime measurement rather than a pure algorithmic complexity curve.
+
+For the 8500-node case, all 20 runs start from a verifier-feasible state with about 34.3\% served load, reach 90\% service at step 18, and finish at full served load. AURC is $0.7127\pm0.0009$ and the mean fallback rate is 0.0063. Relative to the earlier liveness-stress configuration, the present setup changes three items together: it uses 32 finer load blocks, constructs the damaged state along a verifier-feasible shedding path, and searches up to $K_{\max}=8$ ranked candidates. The current experiment shows that this revised configuration restores liveness under the same monitored $[0.90,1.10]$ p.u. voltage criterion; it does not identify the individual contribution of the three changes.
 
 \subsection{Reproducibility and Result Provenance}
 \label{subsec-exp-repro}
 
-The controlled curves are generated by \path{figures/Code/kgfedmarl_security_experiments.py}. The feeder-level experiment is generated by \path{figures/Code/feeder_runtime_experiments.py}, which calls the recovery-knowledge primitives in \path{feeder_runtime_core.py} and the pandapower/OpenDSS adapters in \path{feeder_runtime_models.py}. Every seed is written to \path{figures/results/feeder_runs.csv}; \path{plot_feeder_results.py} reads only rows marked as simulator or measured provenance and produces the four feeder figures above and their summary CSV files. The submitted 20-seed result set records the experiment-source revision, the SHA-256 digest of \path{kgfedmarl_env.zip}, and the pinned OpenDSS feeder revision. Legacy plotting arrays remain in the repository for historical layout comparison but are excluded from the feeder statistics reported here.
+Controlled curves are generated by \path{figures/Code/kgfedmarl_security_experiments.py}. Feeder runs use \path{feeder_runtime_experiments.py}, \path{feeder_runtime_core.py}, and the pandapower/OpenDSS adapters in \path{feeder_runtime_models.py}. Per-seed rows are stored in \path{figures/results/feeder_runs.csv}; \path{plot_feeder_results.py} accepts only simulator or measured provenance for the final feeder figures. The result set records the source revision, the SHA-256 digest of \path{kgfedmarl_env.zip}, and the pinned OpenDSS revision.
