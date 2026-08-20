@@ -29,7 +29,7 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             latexmk texlive-latex-base texlive-latex-recommended texlive-latex-extra \
             texlive-fonts-recommended texlive-font-utils texlive-science texlive-publishers \
-            texlive-lang-chinese ghostscript poppler-utils imagemagick
+            texlive-lang-chinese latex-cjk-all ghostscript poppler-utils imagemagick
 
       - name: Compile manuscript
         id: compile
