@@ -1,11 +1,6 @@
 name: Feeder environment probe
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - '.github/workflows/feeder_env_probe.yml'
-      - 'manuscript/figures/Code/kgfedmarl_env.zip'
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -18,56 +13,49 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Inspect archive
+      - name: Inspect 8500 and IEEE123 assets
         shell: bash
         run: |
           set -euo pipefail
-          ZIP=manuscript/figures/Code/kgfedmarl_env.zip
-          rm -rf /tmp/kgfedmarl_env
-          mkdir -p /tmp/kgfedmarl_env
-          echo '=== ZIP LIST ==='
-          unzip -l "$ZIP" | sed -n '1,220p'
-          unzip -q "$ZIP" -d /tmp/kgfedmarl_env
-          echo '=== FILE TREE ==='
-          find /tmp/kgfedmarl_env -maxdepth 5 -type f -printf '%P\t%k KB\n' | sort | sed -n '1,350p'
-          echo '=== KEY FILES ==='
-          find /tmp/kgfedmarl_env -type f \( -iname 'README*' -o -iname 'requirements*.txt' -o -iname 'pyproject.toml' -o -iname 'setup.py' -o -iname 'environment*.yml' -o -iname 'environment*.yaml' \) -print | sort
-
-      - name: Print README and dependency manifests
-        shell: bash
-        run: |
-          set -euo pipefail
-          while IFS= read -r f; do
-            echo "===== FILE: ${f#/tmp/kgfedmarl_env/} ====="
-            sed -n '1,260p' "$f" || true
-          done < <(find /tmp/kgfedmarl_env -type f \( -iname 'README*' -o -iname 'requirements*.txt' -o -iname 'pyproject.toml' -o -iname 'setup.py' -o -iname 'environment*.yml' -o -iname 'environment*.yaml' \) | sort)
-
-      - name: Locate entry points and feeder definitions
-        shell: bash
-        run: |
-          set -euo pipefail
-          echo '=== PYTHON ENTRYPOINTS ==='
-          grep -RInE '__main__|ArgumentParser|def +main\(' /tmp/kgfedmarl_env --include='*.py' | sed -n '1,320p' || true
-          echo '=== FEEDER / POWER FLOW REFERENCES ==='
-          grep -RInE 'IEEE.?33|IEEE.?69|123|8500|pandapower|opendss|OpenDSS|power.?flow|runpp|DSS' /tmp/kgfedmarl_env --include='*.py' --include='*.md' --include='*.txt' --include='*.yaml' --include='*.yml' | sed -n '1,420p' || true
-
-      - name: Build text manifest artifact
-        shell: bash
-        run: |
-          set -euo pipefail
-          OUT=/tmp/feeder_env_probe
-          mkdir -p "$OUT"
-          find /tmp/kgfedmarl_env -maxdepth 6 -type f -printf '%P\t%s bytes\n' | sort > "$OUT/file_manifest.txt"
-          grep -RInE '__main__|ArgumentParser|def +main\(|IEEE.?33|IEEE.?69|123|8500|pandapower|opendss|OpenDSS|power.?flow|runpp|DSS' /tmp/kgfedmarl_env --include='*.py' --include='*.md' --include='*.txt' --include='*.yaml' --include='*.yml' > "$OUT/code_index.txt" || true
-          for f in $(find /tmp/kgfedmarl_env -type f \( -iname 'README*' -o -iname 'requirements*.txt' -o -iname 'pyproject.toml' -o -iname 'setup.py' \) | sort); do
-            echo "===== ${f#/tmp/kgfedmarl_env/} =====" >> "$OUT/key_files.txt"
-            cat "$f" >> "$OUT/key_files.txt"
-            printf '\n\n' >> "$OUT/key_files.txt"
-          done
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: feeder-env-probe
-          path: /tmp/feeder_env_probe
-          retention-days: 7
+          rm -rf /tmp/env /tmp/o /tmp/sol /tmp/csv
+          mkdir -p /tmp/env /tmp/o /tmp/sol /tmp/csv
+          unzip -q manuscript/figures/Code/kgfedmarl_env.zip -d /tmp/env
+          unzip -q /tmp/env/configs/8500node.zip -d /tmp/o
+          echo '=== SOLUTIONS ZIP ==='
+          unzip -l /tmp/o/Solutions.zip | sed -n '1,700p'
+          unzip -q /tmp/o/Solutions.zip -d /tmp/sol
+          echo '=== SOLUTIONS FILE TREE ==='
+          find /tmp/sol -maxdepth 7 -type f -printf '%P\t%s bytes\n' | sort | sed -n '1,900p'
+          echo '=== EXECUTABLE MODEL CANDIDATES ==='
+          find /tmp/sol -type f \( -iname '*.dss' -o -iname '*.glm' -o -iname '*.raw' -o -iname '*.m' -o -iname '*.py' -o -iname '*.xml' \) -print | sort | sed -n '1,500p'
+          unzip -q '/tmp/o/IEEE-8500Node-CSV-R2b.zip' -d /tmp/csv
+          echo '=== LINE CODES ==='
+          sed -n '1,340p' /tmp/csv/LineCodes2.dat
+          echo '=== SOURCE ==='
+          cat /tmp/csv/Source.dat
+          echo '=== PRIMARY LINE COUNTS / STATUS ==='
+          python - <<'PY'
+          import csv, pathlib, re
+          root=pathlib.Path('/tmp/csv')
+          def data_rows(path):
+              lines=[]
+              for s in path.read_text(errors='ignore').splitlines():
+                  if s.strip() and not s.lstrip().startswith('#'): lines.append(s)
+              return list(csv.DictReader(lines, skipinitialspace=True))
+          for name in ['Lines.csv','Loads.CSV','LoadXfmrs.csv','Triplex_Lines.csv','Regulators.csv','Transformers.csv','Buscoords.csv']:
+              rows=data_rows(root/name)
+              print(name, len(rows), list(rows[0].keys()) if rows else [])
+          rows=data_rows(root/'Lines.csv')
+          statuses={}
+          for r in rows:
+              v=(r.get('Status') or r.get(' Status   ') or '').strip()
+              statuses[v]=statuses.get(v,0)+1
+          print('line_statuses', statuses)
+          buses=set()
+          for r in rows:
+              buses.add((r.get('Bus1') or '').strip()); buses.add((r.get('Bus2') or '').strip())
+          print('primary_line_unique_buses', len(buses))
+          PY
+          echo '=== IEEE123 DEPENDENCY INVENTORY ==='
+          grep -Ein '^\s*(redirect|compile)' /tmp/env/configs/IEEE123Master.dss || true
+          find /tmp/env/configs -maxdepth 2 -type f -printf '%f\n' | sort
