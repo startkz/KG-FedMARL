@@ -1,6 +1,6 @@
-# KG-FedMARL
+# RK-Guard
 
-Research repository for the CPS resilient-recovery manuscript.
+Research repository for the recovery-knowledge-poisoning manuscript.
 
 ## Governing research line
 

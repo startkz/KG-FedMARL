@@ -1,6 +1,6 @@
-\section{KG-FEDMARL: TRUSTWORTHY ONLINE RECOVERY FRAMEWORK}
-\label{sec-kgfedmarl}
-Section~\ref{sec-problem-formulation} identifies two propagation paths that must be controlled under adversarial recovery evidence: evidence can first distort the online knowledge state and then change action admissibility, while contaminated transitions can subsequently shift the deployed recovery policy. KG-FedMARL addresses these paths with three coupled mechanisms: a provenance-aware temporal belief update, a risk-aware recovery gate, and trust-gated policy adaptation. The three mechanisms operate on different time scales but share versioned evidence and authorization records. Federated learning, heterogeneous action heads, and graph encoders remain optional deployment components; none of them is part of the safety root.
+\section{RECOVERY-KNOWLEDGE PROTECTION FRAMEWORK}
+\label{sec-rkguard}
+Section~\ref{sec-problem-formulation} identifies two propagation paths that must be controlled under adversarial recovery evidence: evidence can first distort the online knowledge state and then change action admissibility, while contaminated transitions can subsequently shift the deployed recovery policy. We refer to the resulting protection layer as \emph{RK-Guard} (Recovery-Knowledge Guard). It combines three coupled mechanisms: a provenance-aware temporal belief update, a risk-aware recovery gate, and trust-gated policy adaptation. The three mechanisms operate on different time scales but share versioned evidence and authorization records. Distributed learning components, heterogeneous action heads, and graph encoders may be attached behind these trust boundaries; none is part of the safety root.
 
 \subsection{Provenance-Aware Temporal Belief Update}
 \label{subsec-patb}
@@ -156,7 +156,7 @@ A bounded priority queue reduces ranking to $O(M_t+K_{\max}\log M_t)$. Since $C_
 
 \subsection{Trust-Gated Online Policy Adaptation}
 \label{subsec-trust-policy}
-The second propagation path arises when a transition collected under poisoned knowledge enters replay and repeatedly shifts the policy. KG-FedMARL therefore separates fast belief updates from slower policy adaptation. Define the joint information state $\boldsymbol\iota_t=(\iota_{1,t},\ldots,\iota_{N,t})$. Each learning transition is bound to the belief, policy, and verifier versions used during execution,
+The second propagation path arises when a transition collected under poisoned knowledge enters replay and repeatedly shifts the policy. RK-Guard therefore separates fast belief updates from slower policy adaptation. Define the joint information state $\boldsymbol\iota_t=(\iota_{1,t},\ldots,\iota_{N,t})$. Each learning transition is bound to the belief, policy, and verifier versions used during execution,
 \begin{align}
 \label{eq-versioned-transition}
 \tau_t=(\boldsymbol\iota_t,\mathbf{a}^{exec}_t,R_t,\boldsymbol\iota_{t+1},v_B,v_\pi,v_V).
@@ -186,7 +186,7 @@ New transitions first enter a pending buffer $\mathcal{D}^{pend}$. A transition 
 \mathcal{L}_{V}&=\mathbb{E}_{\tau_t\sim\mathcal{D}^{trust}}
 \left[\Gamma_t\big(V_\phi(\boldsymbol\iota_t)-y_t\big)^2\right].
 \end{align}
-These losses are optimizer-agnostic; MAPPO, MADDPG, or another decentralized learner may instantiate the optimizer without changing the trust boundary.
+These losses are optimizer-agnostic; a decentralized online learner may instantiate the optimizer without changing the trust boundary.
 
 The deployed policy $\Pi^{stable}$ is never overwritten directly. An adaptation event first produces $\Pi^{cand}$. Using the same fixed audit distribution $\mu^{\rm audit}$ as Eq.~\ref{eq-policy-distance}, define the promotion trust-region metric
 \begin{align}

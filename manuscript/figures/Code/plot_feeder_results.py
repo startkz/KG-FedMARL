@@ -27,6 +27,14 @@ ABLATION_LABELS = {
     "no_transition_quarantine": "No quarantine",
     "fixed_promotion_radius": "Fixed radius",
 }
+# Preserve the historical raw method key in per-seed logs so previously recorded
+# seeds and RNG salts remain reproducible. Manuscript-facing outputs use RK-Guard.
+FULL_METHOD_KEY = "KG-FedMARL"
+METHOD_DISPLAY = {FULL_METHOD_KEY: "RK-Guard"}
+
+
+def method_label(method):
+    return METHOD_DISPLAY.get(method, method)
 
 
 def parse_args():
@@ -34,7 +42,7 @@ def parse_args():
     p.add_argument("--input", required=True)
     p.add_argument("--output-dir", required=True)
     p.add_argument("--min-seeds", type=int, default=5)
-    p.add_argument("--full-method", default="KG-FedMARL")
+    p.add_argument("--full-method", default=FULL_METHOD_KEY)
     p.add_argument("--baseline-feeder", default="IEEE33")
     p.add_argument("--intensity-feeder", default="IEEE33")
     p.add_argument("--ablation-feeder", default="IEEE33")
@@ -82,7 +90,7 @@ def plot_baseline(rows, outdir, args):
            and r["attack_type"] == args.baseline_attack_type
            and r["attack_level"] == args.baseline_attack_level
            and r.get("ablation", "full") in ("", "full")]
-    methods = [m for m in ("Oracle-AC", "Latest-Evidence", "Static-KG", "KG-FedMARL")
+    methods = [m for m in ("Oracle-AC", "Latest-Evidence", "Static-KG", FULL_METHOD_KEY)
                if any(r["method"] == m for r in sel)]
     if len(methods) < 2: raise ValueError("end-to-end baseline needs >=2 methods")
     summary=[]; means=[]; stds=[]
@@ -92,11 +100,12 @@ def plot_baseline(rows, outdir, args):
         aurc,aurc_sd,n=mean_std(rr,"AURC"); db,db_sd,_=mean_std(rr,"D_B")
         pfa,pfa_sd,_=mean_std(rr,"P_FA"); dpi,dpi_sd,_=mean_std(rr,"D_pi")
         means.append(aurc); stds.append(aurc_sd)
-        summary.append({"feeder":args.baseline_feeder,"method":method,"seeds":n,
+        summary.append({"feeder":args.baseline_feeder,"method":method_label(method),"seeds":n,
                         "AURC_mean":aurc,"AURC_std":aurc_sd,"D_B_mean":db,"D_B_std":db_sd,
                         "P_FA_mean":pfa,"P_FA_std":pfa_sd,"D_pi_mean":dpi,"D_pi_std":dpi_sd})
     fig,ax=plt.subplots(figsize=(3.5,2.45)); x=np.arange(len(methods))
-    ax.bar(x,means,yerr=stds,capsize=3); ax.set_xticks(x); ax.set_xticklabels(methods,rotation=25,ha="right")
+    ax.bar(x,means,yerr=stds,capsize=3); ax.set_xticks(x)
+    ax.set_xticklabels([method_label(m) for m in methods],rotation=25,ha="right")
     ax.set_ylabel("Restoration AURC"); ax.grid(True,axis="y",linestyle="--",alpha=.35)
     fig.tight_layout(); save_fig(fig,outdir,"feeder_end_to_end_baseline")
     write_summary(outdir/"feeder_end_to_end_baseline.csv",summary)

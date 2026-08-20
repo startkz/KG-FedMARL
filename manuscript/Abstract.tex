@@ -1,4 +1,4 @@
-\title{KG-FedMARL: Resilient Power Cyber-Physical System Restoration under Recovery Knowledge Poisoning\\
+\title{Resilient Power Cyber-Physical System Restoration under Recovery Knowledge Poisoning\\
 }
 \author{
         Kai~Zhong,
@@ -16,15 +16,15 @@
 }
 
 \markboth{IEEE TRANSACTIONS ON DEPENDABLE AND SECURE COMPUTING,~Vol.~*, No.~*, *~2026}%
-{Zhong \MakeLowercase{\textit{et al.}}: KG-FedMARL: Resilient Power CPS Restoration under Recovery Knowledge Poisoning}
+{Zhong \MakeLowercase{\textit{et al.}}: Resilient Power CPS Restoration under Recovery Knowledge Poisoning}
 
 \IEEEtitleabstractindextext{
 \begin{abstract}
-\justifying{Power cyber-physical system (PCPS) restoration uses runtime information about controller status, measurement trust, communication reachability, authorization conditions, and earlier recovery outcomes. During an attack, this information can be missing, stale, conflicting, replayed, or fabricated. We study attacks on this information as \emph{recovery knowledge poisoning}. KG-FedMARL maintains dynamic recovery assertions as provenance-aware temporal beliefs, uses those beliefs to screen evidence-dependent action prerequisites before authoritative physical verification, and quarantines uncertain recovery transitions before policy promotion. Restoration is formulated as a constrained decentralized partially observable Markov decision process. Under the stated trust boundary, we derive sufficient bounds for belief distortion, semantic false authorization, post-attack belief correction, and deployed-policy drift. The bounds relate these quantities to the adversarial evidence budget, provenance influence caps, temporal forgetting, belief calibration, and policy-promotion constraints. Controlled experiments remain within the derived envelopes. In 20-seed IEEE 33-bus simulations under medium mixed poisoning, KG-FedMARL lowers the semantic false-authorization rate by 75.0\% relative to Latest-Evidence and by 89.3\% relative to Static-KG, while its mean AURC is 0.92\% below the Oracle-AC reference. On the 4,876-bus realization of the IEEE 8500-node feeder, the revised 32-block restoration configuration reaches 90\% served load at step 18 and full final service in all 20 runs, with 62.4 ms mean authorization-loop latency. Multi-agent reinforcement learning and federated training remain deployment choices; the security bounds do not rely on them as trusted components.}
+\justifying{Power cyber-physical system (PCPS) restoration uses runtime information about controller status, measurement trust, communication reachability, authorization conditions, and earlier recovery outcomes. During an attack, this information can be missing, stale, conflicting, replayed, or fabricated. We study attacks on this information as \emph{recovery knowledge poisoning}. We develop RK-Guard, a recovery-knowledge protection framework that maintains dynamic recovery assertions as provenance-aware temporal beliefs, uses those beliefs to screen evidence-dependent action prerequisites before authoritative physical verification, and quarantines uncertain recovery transitions before policy promotion. Restoration is formulated as a constrained decentralized partially observable Markov decision process. Under the stated trust boundary, we derive sufficient bounds for belief distortion, semantic false authorization, post-attack belief correction, and deployed-policy drift. The bounds relate these quantities to the adversarial evidence budget, provenance influence caps, temporal forgetting, belief calibration, and policy-promotion constraints. Controlled experiments remain within the derived envelopes. In 20-seed IEEE 33-bus simulations under medium mixed poisoning, RK-Guard lowers the semantic false-authorization rate by 75.0\% relative to Latest-Evidence and by 89.3\% relative to Static-KG, while its mean AURC is 0.92\% below the Oracle-AC reference. On the 4,876-bus realization of the IEEE 8500-node feeder, the revised 32-block restoration configuration reaches 90\% served load at step 18 and full final service in all 20 runs, with 62.4 ms mean authorization-loop latency. The security bounds depend on the recovery-knowledge trust boundaries and authoritative verifier rather than on a particular distributed learning architecture.}
 \end{abstract}
 
 \begin{IEEEkeywords}
-Power cyber-physical systems, resilient restoration, recovery knowledge poisoning, knowledge graph, provenance, multi-agent reinforcement learning, trustworthy online learning.
+Power cyber-physical systems, resilient restoration, recovery knowledge poisoning, recovery knowledge integrity, knowledge graph, provenance, semantic authorization, trustworthy online learning.
 \end{IEEEkeywords}}
 
 \maketitle
