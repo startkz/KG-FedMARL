@@ -1,5 +1,5 @@
-run_id=32320590000
-source_commit=8dda20d3783735f063d1c3192341b63257dd96f0
+run_id=32320790092
+source_commit=15a5443df67403a9502b76056edd1b87bb48830f
 install_outcome=success
 compile_outcome=success
 pdf_created=yes
@@ -7,7 +7,7 @@ page_count=14
 experimental_start_page=11
 conclusion_start_page=13
 experimental_page_span_before_conclusion=2
-overfull_hbox_count=1
+overfull_hbox_count=0
 underfull_hbox_count=10
 undefined_reference_count=0
 undefined_citation_count=0
@@ -25,7 +25,7 @@ conclusion_pages=13
 references_pages=NOT_FOUND
 
 OVERFULL:
-Overfull \hbox (48.47371pt too wide) detected at line 62
+none
 
 UNDEFINED REFERENCES:
 none
