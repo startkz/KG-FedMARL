@@ -1,31 +1,31 @@
-run_id=32318720451
-source_commit=01bf4212f51d15e6767a565b6de5e97e16eb88ea
+run_id=32320590000
+source_commit=8dda20d3783735f063d1c3192341b63257dd96f0
 install_outcome=success
 compile_outcome=success
 pdf_created=yes
-page_count=16
-experimental_start_page=3
-conclusion_start_page=15
-experimental_page_span_before_conclusion=12
-overfull_hbox_count=0
-underfull_hbox_count=9
+page_count=14
+experimental_start_page=11
+conclusion_start_page=13
+experimental_page_span_before_conclusion=2
+overfull_hbox_count=1
+underfull_hbox_count=10
 undefined_reference_count=0
 undefined_citation_count=0
 rerun_warning_count=0
-section_vii_pages=3,11
-controlled_belief_pages=12
-controlled_correction_pages=12
-controlled_false_auth_pages=13
-controlled_policy_pages=13
-feeder_baseline_pages=13
-feeder_intensity_pages=14
-feeder_ablation_pages=14
-feeder_scale_pages=14
-conclusion_pages=15
+section_vii_pages=11
+controlled_belief_pages=11
+controlled_correction_pages=11
+controlled_false_auth_pages=NOT_FOUND
+controlled_policy_pages=12
+feeder_baseline_pages=12
+feeder_intensity_pages=13
+feeder_ablation_pages=13
+feeder_scale_pages=NOT_FOUND
+conclusion_pages=13
 references_pages=NOT_FOUND
 
 OVERFULL:
-none
+Overfull \hbox (48.47371pt too wide) detected at line 62
 
 UNDEFINED REFERENCES:
 none
