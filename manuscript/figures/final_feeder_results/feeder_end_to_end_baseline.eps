@@ -5,15 +5,17 @@
 %%EndComments
 /Helvetica findfont 7 scalefont setfont
 1 setlinejoin 1 setlinecap
-% Plot area: x=38..244, y=30..158; y range 0.88..0.95
-/mapy { 0.88 sub 1828.57142857 mul 30 add } bind def
+% Plot area: x=38..244, y=30..158; y range 0..1
+/mapy { 128 mul 30 add } bind def
 % horizontal grid
 0.85 setgray 0.4 setlinewidth
 [2 2] 0 setdash
-38 0.88 mapy moveto 244 0.88 mapy lineto stroke
-38 0.90 mapy moveto 244 0.90 mapy lineto stroke
-38 0.92 mapy moveto 244 0.92 mapy lineto stroke
-38 0.94 mapy moveto 244 0.94 mapy lineto stroke
+38 0.0 mapy moveto 244 0.0 mapy lineto stroke
+38 0.2 mapy moveto 244 0.2 mapy lineto stroke
+38 0.4 mapy moveto 244 0.4 mapy lineto stroke
+38 0.6 mapy moveto 244 0.6 mapy lineto stroke
+38 0.8 mapy moveto 244 0.8 mapy lineto stroke
+38 1.0 mapy moveto 244 1.0 mapy lineto stroke
 [] 0 setdash
 % axes
 0 setgray 0.8 setlinewidth
@@ -21,31 +23,32 @@
 38 30 moveto 244 30 lineto stroke
 % y tick labels
 /Helvetica findfont 7 scalefont setfont
-8 0.88 mapy 2 sub moveto (0.88) show
-8 0.90 mapy 2 sub moveto (0.90) show
-8 0.92 mapy 2 sub moveto (0.92) show
-8 0.94 mapy 2 sub moveto (0.94) show
+20 28 moveto (0.0) show
+20 0.2 mapy 2 sub moveto (0.2) show
+20 0.4 mapy 2 sub moveto (0.4) show
+20 0.6 mapy 2 sub moveto (0.6) show
+20 0.8 mapy 2 sub moveto (0.8) show
+20 1.0 mapy 2 sub moveto (1.0) show
 % y axis title
 /Helvetica findfont 8 scalefont setfont
-gsave 7 94 translate 90 rotate 0 0 moveto (Restoration AURC) show grestore
-% errorbar helper: x mean sd
-/pt { /sd exch def /m exch def /x exch def
-  0 setgray 1 setlinewidth
-  x m sd sub mapy moveto x m sd add mapy lineto stroke
+gsave 7 82 translate 90 rotate 0 0 moveto (Restoration AURC) show grestore
+% bar helper: x mean sd
+/bar { /sd exch def /m exch def /x exch def
+  0.70 setgray newpath x 10 sub 30 moveto x 10 add 30 lineto x 10 add m mapy lineto x 10 sub m mapy lineto closepath fill
+  0 setgray 0.7 setlinewidth newpath x 10 sub 30 moveto x 10 add 30 lineto x 10 add m mapy lineto x 10 sub m mapy lineto closepath stroke
+  1 setlinewidth x m sd sub mapy moveto x m sd add mapy lineto stroke
   x 3 sub m sd sub mapy moveto x 3 add m sd sub mapy lineto stroke
   x 3 sub m sd add mapy moveto x 3 add m sd add mapy lineto stroke
-  newpath x m mapy 2.5 0 360 arc closepath fill
 } bind def
-% points
-64 0.9235615747 0.0102116313 pt
-115 0.9138627187 0.0095678849 pt
-166 0.9235615747 0.0102116313 pt
-217 0.9150319650 0.0176506126 pt
+64 0.9235615747 0.0102116313 bar
+115 0.9138627187 0.0095678849 bar
+166 0.9235615747 0.0102116313 bar
+217 0.9150319650 0.0176506126 bar
 % x labels
 /Helvetica findfont 7 scalefont setfont
-gsave 55 23 translate 20 rotate 0 0 moveto (Oracle-AC) show grestore
-gsave 102 23 translate 20 rotate 0 0 moveto (Latest-Evidence) show grestore
-gsave 153 23 translate 20 rotate 0 0 moveto (Static-KG) show grestore
-gsave 207 23 translate 20 rotate 0 0 moveto (RK-Guard) show grestore
+gsave 54 20 translate 20 rotate 0 0 moveto (Oracle-AC) show grestore
+gsave 101 20 translate 20 rotate 0 0 moveto (Latest-Evidence) show grestore
+gsave 153 20 translate 20 rotate 0 0 moveto (Static-KG) show grestore
+gsave 207 20 translate 20 rotate 0 0 moveto (RK-Guard) show grestore
 showpage
 %%EOF
