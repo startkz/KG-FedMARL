@@ -46,7 +46,8 @@
 \usepackage{tikz}
 \usetikzlibrary{mindmap,trees,positioning,arrows.meta}
 \usepackage{verbatim}
-\usepackage{CJK}
+% CJK was inherited from an earlier draft but is not used by the English manuscript.
+% Keeping it here made clean CI builds depend on a nonessential legacy package.
 \usepackage{makecell}
 
 \usepackage[hidelinks]{hyperref}
@@ -93,18 +94,10 @@
 \input{ProblemFormulation.tex}
 \input{MU2MV-Framework.tex}
 \input{TheoreticalAnalysis.tex}
-%\input{DRQL.tex}
 \input{Experimental-RPDRQL.tex}
-\FloatBarrier
 \input{Conclution.tex}
-% Acknowledgments are optional in the working repository and are included only when provided.
-\IfFileExists{Acknowledgments.tex}{\input{Acknowledgments.tex}}{}
 
-\bibliography{ref}{}
-\bibliographystyle{unsrt}
-
-% Author biographies are retained in Shortbios.tex but excluded from the submission manuscript.
-%\input{Shortbios.tex}
+\bibliographystyle{IEEEtran}
+\bibliography{ref}
 
 \end{document}
-\endinput
