@@ -55,12 +55,12 @@ Let action $\mathbf{a}$ require prerequisites $\mathcal{Q}(\mathbf{a})$. Assume 
 If Algorithm~\ref{alg-risk-gate} enforces Eqs.~\ref{eq-gate-prerequisite}--\ref{eq-gate-risk-budget}, then for a candidate released by the semantic gate,
 \begin{align}
 \label{eq-thm-auth-bound}
-\Pr(\mathbf{a}\ \text{is falsely authorized semantically})
-\le
-\sum_{q\in\mathcal{Q}(\mathbf{a})}(\delta_q+\varepsilon_q)
-\le\bar\delta_B+\sum_{q\in\mathcal{Q}(\mathbf{a})}\varepsilon_q.
+\Pr\!\left(\mathbf{a}\notin\mathbb U_t^{B,\star}
+\mid \mathbf{a}\in\mathbb U_t^B\right)
+&\le \sum_{q\in\mathcal{Q}(\mathbf{a})}(\delta_q+\varepsilon_q)\nonumber\\
+&\le\bar\delta_B+\sum_{q\in\mathcal{Q}(\mathbf{a})}\varepsilon_q.
 \end{align}
-The target in Eq.~\ref{eq-false-authorization-bound} is therefore satisfied whenever
+The target in Eq.~\ref{eq-false-authorization-bound} is satisfied whenever
 \begin{align}
 \label{eq-auth-budget-closure}
 \bar\delta_B+\sum_{q\in\mathcal{Q}(\mathbf{a})}\varepsilon_q
