@@ -1,9 +1,34 @@
-run_id=32242362649
-source_commit=344d9b44922f16b2cb8d2801534f5b8e818dc50f
+run_id=32318720451
+source_commit=01bf4212f51d15e6767a565b6de5e97e16eb88ea
 install_outcome=success
-compile_outcome=failure
-pdf_created=no
+compile_outcome=success
+pdf_created=yes
+page_count=16
+experimental_start_page=3
+conclusion_start_page=15
+experimental_page_span_before_conclusion=12
+overfull_hbox_count=0
+underfull_hbox_count=9
+undefined_reference_count=0
+undefined_citation_count=0
+rerun_warning_count=0
+section_vii_pages=3,11
+controlled_belief_pages=12
+controlled_correction_pages=12
+controlled_false_auth_pages=13
+controlled_policy_pages=13
+feeder_baseline_pages=13
+feeder_intensity_pages=14
+feeder_ablation_pages=14
+feeder_scale_pages=14
+conclusion_pages=15
+references_pages=NOT_FOUND
 
-COMPILE ERRORS:
-! LaTeX Error: File `CJK.sty' not found.
-./main.tex:50:  ==> Fatal error occurred, no output PDF file produced!
+OVERFULL:
+none
+
+UNDEFINED REFERENCES:
+none
+
+UNDEFINED CITATIONS:
+none
